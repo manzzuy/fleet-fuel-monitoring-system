@@ -1,0 +1,4 @@
+interface:
+  display_name: "Feature Delivery"
+  short_description: "Structured Fleet Fuel feature delivery workflow."
+  default_prompt: "Plan and execute this feature through product, architecture, design, backend, frontend, QA, and security with tenant-safe controls."

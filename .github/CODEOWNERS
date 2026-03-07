@@ -1,0 +1,11 @@
+# Fleet Fuel Monitoring monorepo ownership
+
+* @nask
+
+/apps/api/ @nask
+/apps/admin-web/ @nask
+/apps/driver-pwa/ @nask
+/packages/shared/ @nask
+/infra/ @nask
+/docs/ @nask
+/skills/ @nask

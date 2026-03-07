@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tenant Safety Review"
+  short_description: "Enforce tenant isolation controls and detect cross-tenant risks."
+  default_prompt: "Review this change for tenant isolation risks and provide concrete, production-ready fixes."

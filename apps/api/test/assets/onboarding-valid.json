@@ -1,0 +1,43 @@
+{
+  "Sites": [
+    {
+      "Site_Code": "s1",
+      "Site_Name": "Main Site",
+      "Location": "Muscat"
+    }
+  ],
+  "Drivers": [
+    {
+      "Employee_No": "e100",
+      "Full_Name": "Ali Driver",
+      "Email": "ali@example.com",
+      "Phone": "99999999",
+      "Role": "DRIVER",
+      "Site_Code": "s1",
+      "Driving_License_No": "DL-111",
+      "Driving_License_Expiry": "2027-12-31",
+      "OPAL_No": "OP-10",
+      "OPAL_Expiry": "2027-05-31"
+    }
+  ],
+  "Vehicles_Cards": [
+    {
+      "Site_Code": "s1",
+      "Fleet_No": "f100",
+      "Plate_No": "pl-100",
+      "Vehicle_Type": "Truck",
+      "Tank_Capacity_L": 450,
+      "Card_Number": "card-100",
+      "Card_Type": "DIESEL",
+      "Card_Status": "ACTIVE"
+    }
+  ],
+  "Tanks": [
+    {
+      "Site_Code": "s1",
+      "Tank_Name": "Tank-A",
+      "Capacity_L": 20000,
+      "Reorder_Level_L": 5000
+    }
+  ]
+}

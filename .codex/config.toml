@@ -1,0 +1,46 @@
+[features]
+multi_agent = true
+
+[coordination]
+max_threads = 8
+max_depth = 1
+
+[agents.product_owner]
+path = ".codex/agents/product_owner.toml"
+description = "Use first for feature framing, scope, non-goals, acceptance criteria, and delivery sequencing."
+
+[agents.architect]
+path = ".codex/agents/architect.toml"
+description = "Use for architecture boundaries, tenancy strategy, ADR-quality decisions, and long-term system evolution."
+
+[agents.designer_uiux]
+path = ".codex/agents/designer_uiux.toml"
+description = "Use for design-system rules, page/flow specs, interaction states, and cross-surface UX consistency."
+
+[agents.backend]
+path = ".codex/agents/backend.toml"
+description = "Use for API contracts, schema/migrations, auth, tenancy enforcement, services, and background jobs."
+
+[agents.frontend_admin]
+path = ".codex/agents/frontend_admin.toml"
+description = "Use for admin SaaS UI implementation and state integration, strictly aligned to specs and API contracts."
+
+[agents.frontend_driver]
+path = ".codex/agents/frontend_driver.toml"
+description = "Use for driver PWA implementation with mobile-first, field-safe, low-friction UX priorities."
+
+[agents.qa]
+path = ".codex/agents/qa.toml"
+description = "Use for test strategy, regression confidence, acceptance validation, and release readiness."
+
+[agents.security]
+path = ".codex/agents/security.toml"
+description = "Use for threat modeling and tenant-isolation/auth hardening audits with evidence-backed findings."
+
+[agents.data_import]
+path = ".codex/agents/data_import.toml"
+description = "Use for onboarding import preview→commit design and implementation with strict validation and idempotency."
+
+[agents.monitor]
+path = ".codex/agents/monitor.toml"
+description = "Use for process/log observation and runtime status reporting grounded in observed evidence."

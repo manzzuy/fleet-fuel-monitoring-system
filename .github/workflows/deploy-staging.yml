@@ -1,0 +1,135 @@
+name: Deploy Staging
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: staging
+
+    env:
+      DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      STAGING_DEPLOY_HOOK_API: ${{ secrets.STAGING_DEPLOY_HOOK_API }}
+      STAGING_DEPLOY_HOOK_ADMIN: ${{ secrets.STAGING_DEPLOY_HOOK_ADMIN }}
+      STAGING_DEPLOY_HOOK_DRIVER: ${{ secrets.STAGING_DEPLOY_HOOK_DRIVER }}
+      PLATFORM_BASE_DOMAIN: ${{ vars.STAGING_PLATFORM_BASE_DOMAIN }}
+      STAGING_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL }}
+      STAGING_ADMIN_BASE_URL: ${{ vars.STAGING_ADMIN_BASE_URL }}
+      STAGING_DRIVER_BASE_URL: ${{ vars.STAGING_DRIVER_BASE_URL }}
+      STAGING_TENANT_HOST: ${{ vars.STAGING_TENANT_HOST }}
+      STAGING_TENANT_ADMIN_IDENTIFIER: ${{ secrets.STAGING_TENANT_ADMIN_IDENTIFIER }}
+      STAGING_TENANT_ADMIN_PASSWORD: ${{ secrets.STAGING_TENANT_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Validate staging configuration
+        run: |
+          set -euo pipefail
+          required_vars=(
+            DATABASE_URL
+            STAGING_API_BASE_URL
+            STAGING_ADMIN_BASE_URL
+            STAGING_DRIVER_BASE_URL
+            STAGING_TENANT_HOST
+            STAGING_TENANT_ADMIN_IDENTIFIER
+            STAGING_TENANT_ADMIN_PASSWORD
+          )
+          for name in "${required_vars[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing required staging variable: ${name}"
+              exit 1
+            fi
+          done
+
+          required_hooks=(
+            STAGING_DEPLOY_HOOK_API
+            STAGING_DEPLOY_HOOK_ADMIN
+            STAGING_DEPLOY_HOOK_DRIVER
+          )
+          for hook in "${required_hooks[@]}"; do
+            if [[ -z "${!hook:-}" ]]; then
+              echo "Missing required staging deploy hook value: ${hook}"
+              exit 1
+            fi
+          done
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build artifacts
+        run: pnpm deploy:build
+
+      - name: Deploy API service
+        run: curl --fail --show-error --silent --request POST "${STAGING_DEPLOY_HOOK_API}"
+
+      - name: Deploy admin-web service
+        run: curl --fail --show-error --silent --request POST "${STAGING_DEPLOY_HOOK_ADMIN}"
+
+      - name: Deploy driver-pwa service
+        run: curl --fail --show-error --silent --request POST "${STAGING_DEPLOY_HOOK_DRIVER}"
+
+      - name: Run staging migrations
+        run: pnpm deploy:migrate
+
+      - name: Post-deploy health checks
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent "${STAGING_API_BASE_URL}/health"
+          curl --fail --show-error --silent \
+            --header "x-forwarded-host: ${STAGING_TENANT_HOST}" \
+            "${STAGING_API_BASE_URL}/tenanted/health"
+          curl --fail --show-error --silent "${STAGING_ADMIN_BASE_URL}"
+          curl --fail --show-error --silent "${STAGING_DRIVER_BASE_URL}"
+
+      - name: Verify tenanted system status
+        run: |
+          set -euo pipefail
+          LOGIN_RESPONSE="$(curl --fail --show-error --silent \
+            --request POST \
+            --header "content-type: application/json" \
+            --header "x-forwarded-host: ${STAGING_TENANT_HOST}" \
+            --data "{\"identifier\":\"${STAGING_TENANT_ADMIN_IDENTIFIER}\",\"password\":\"${STAGING_TENANT_ADMIN_PASSWORD}\"}" \
+            "${STAGING_API_BASE_URL}/auth/login")"
+
+          ACCESS_TOKEN="$(node -e 'const payload=JSON.parse(process.argv[1]); process.stdout.write(payload.access_token || "");' "$LOGIN_RESPONSE")"
+          if [[ -z "${ACCESS_TOKEN}" ]]; then
+            echo "Failed to obtain staging tenant access token."
+            exit 1
+          fi
+
+          STATUS_RESPONSE="$(curl --fail --show-error --silent \
+            --header "x-forwarded-host: ${STAGING_TENANT_HOST}" \
+            --header "authorization: Bearer ${ACCESS_TOKEN}" \
+            "${STAGING_API_BASE_URL}/tenanted/system/status")"
+
+          node -e '
+            const payload = JSON.parse(process.argv[1]);
+            if (!payload || !payload.services || !payload.readiness) {
+              console.error("Invalid /tenanted/system/status payload.");
+              process.exit(1);
+            }
+            if (payload.services.notifications?.mode !== "stub") {
+              console.error("Staging notification mode is not stub-safe.");
+              process.exit(1);
+            }
+            process.stdout.write("system-status-ok\n");
+          ' "$STATUS_RESPONSE"

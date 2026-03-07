@@ -1,0 +1,682 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum PlatformUserRole {
+  PLATFORM_OWNER
+}
+
+enum UserRole {
+  COMPANY_ADMIN
+  SUPERVISOR
+  SITE_SUPERVISOR
+  TRANSPORT_MANAGER
+  HEAD_OFFICE_ADMIN
+  DRIVER
+}
+
+enum OnboardingImportBatchStatus {
+  UPLOADED
+  PREVIEWED
+  COMMITTED
+  FAILED
+}
+
+enum FuelSourceType {
+  CARD
+  TANK
+  STATION
+  MANUAL
+  APPROVED_SOURCE
+}
+
+enum DailyCheckStatus {
+  DRAFT
+  SUBMITTED
+}
+
+enum DailyCheckItemStatus {
+  OK
+  NOT_OK
+  NA
+}
+
+enum NotificationRecipientScope {
+  ALL_TENANT_OPERATIONS
+  SITE_SUPERVISORS_ONLY
+  CUSTOM
+}
+
+enum NotificationChannel {
+  WHATSAPP
+}
+
+enum NotificationEventType {
+  COMPLIANCE_EXPIRED
+  COMPLIANCE_EXPIRING_SOON
+}
+
+enum NotificationDispatchStatus {
+  PENDING
+  SENT
+  FAILED_RETRYABLE
+  FAILED_PERMANENT
+  SKIPPED_DISABLED
+  SKIPPED_NO_RECIPIENTS
+  SKIPPED_NOT_CONFIGURED
+  STUBBED
+}
+
+enum ContactDirectoryRole {
+  SITE_SUPERVISOR
+  TRANSPORT_MANAGER
+  HEAD_OFFICE_ADMIN
+  CUSTOM
+}
+
+enum ComplianceAppliesTo {
+  DRIVER
+  VEHICLE
+}
+
+model PlatformUser {
+  id           String           @id @default(uuid()) @db.Uuid
+  email        String           @unique
+  passwordHash String           @map("password_hash")
+  role         PlatformUserRole
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  onboardingBatches OnboardingImportBatch[]
+
+  @@map("platform_users")
+}
+
+model Tenant {
+  id                String                   @id @default(uuid()) @db.Uuid
+  name              String
+  status            TenantStatus             @default(ACTIVE)
+  createdAt         DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  domains           TenantDomain[]
+  users             User[]
+  drivers           Driver[]
+  sites             Site[]
+  vehicles          Vehicle[]
+  fuelCards         FuelCard[]
+  onboardingBatches OnboardingImportBatch[]
+  auditLogs         AuditLog[]
+  tanks             Tank[]
+  equipment         Equipment[]
+  driverCredentials DriverCredential[]
+  driverProfiles    DriverProfile[]
+  supervisorSites   SupervisorSite[]
+  siteAssignments   UserSiteAssignment[]
+  fuelEntries       FuelEntry[]
+  dailyChecks       DailyCheck[]
+  notificationSettings TenantNotificationSettings?
+  notificationOutbox   NotificationOutbox[]
+  notificationDeliveries NotificationDelivery[]
+  contactDirectoryEntries ContactDirectoryEntry[]
+  contactSiteAssignments  ContactSiteAssignment[]
+  complianceTypes   ComplianceType[]
+  complianceRecords ComplianceRecord[]
+
+  @@map("tenants")
+}
+
+model TenantDomain {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  subdomain  String   @unique
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("tenant_domains")
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  role         UserRole
+  email        String?
+  username     String?
+  employeeNo   String?   @map("employee_no")
+  fullName     String    @map("full_name")
+  passwordHash String    @map("password_hash")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  auth         UserAuth?
+  driverProfile DriverProfile?
+  driverCredentials DriverCredential[]
+  supervisedSites SupervisorSite[]
+  siteAssignments UserSiteAssignment[]
+  contactDirectoryEntries ContactDirectoryEntry[]
+  fuelEntriesAsDriver FuelEntry[] @relation("FuelEntryDriver")
+  fuelEntriesCreated  FuelEntry[] @relation("FuelEntryCreatedBy")
+  dailyChecksAsDriver DailyCheck[] @relation("DailyCheckDriver")
+  dailyChecksCreated  DailyCheck[] @relation("DailyCheckCreatedBy")
+  complianceRecords   ComplianceRecord[] @relation("ComplianceRecordDriver")
+  complianceRecordsCreated ComplianceRecord[] @relation("ComplianceRecordCreatedBy")
+
+  @@index([tenantId])
+  @@unique([tenantId, email])
+  @@unique([tenantId, username])
+  @@unique([tenantId, employeeNo])
+  @@map("users")
+}
+
+model UserAuth {
+  id                  String   @id @default(uuid()) @db.Uuid
+  userId              String   @unique @map("user_id") @db.Uuid
+  passwordHash        String   @map("password_hash")
+  forcePasswordChange Boolean  @default(false) @map("force_password_change")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_auth")
+}
+
+model DriverProfile {
+  id                   String    @id @default(uuid()) @db.Uuid
+  tenantId             String    @map("tenant_id") @db.Uuid
+  userId               String    @unique @map("user_id") @db.Uuid
+  drivingLicenseNo     String?   @map("driving_license_no")
+  drivingLicenseExpiry DateTime? @map("driving_license_expiry") @db.Date
+  opalNo               String?   @map("opal_no")
+  opalExpiry           DateTime? @map("opal_expiry") @db.Date
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("driver_profiles")
+}
+
+model DriverCredential {
+  id               String    @id @default(uuid()) @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  credentialType   String    @map("credential_type")
+  credentialNumber String?   @map("credential_number")
+  expiryDate       DateTime? @map("expiry_date") @db.Date
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@unique([tenantId, userId, credentialType])
+  @@map("driver_credentials")
+}
+
+model SupervisorSite {
+  id               String   @id @default(uuid()) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  supervisorUserId String   @map("supervisor_user_id") @db.Uuid
+  siteId           String   @map("site_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supervisor       User     @relation(fields: [supervisorUserId], references: [id], onDelete: Cascade)
+  site             Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([supervisorUserId])
+  @@index([siteId])
+  @@unique([tenantId, supervisorUserId, siteId])
+  @@map("supervisor_sites")
+}
+
+model UserSiteAssignment {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  siteId    String   @map("site_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([siteId])
+  @@unique([tenantId, userId, siteId])
+  @@map("user_site_assignments")
+}
+
+model Driver {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  employeeNumber String?  @map("employee_number")
+  username       String
+  passwordHash   String   @map("password_hash")
+  fullName       String   @map("full_name")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  siteId         String?  @map("site_id") @db.Uuid
+  assignedVehicleId String? @map("assigned_vehicle_id") @db.Uuid
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site           Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  assignedVehicle Vehicle? @relation("VehicleDriverAssignments", fields: [assignedVehicleId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([assignedVehicleId])
+  @@unique([tenantId, username])
+  @@unique([tenantId, employeeNumber])
+  @@map("drivers")
+}
+
+model Site {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  siteCode  String   @map("site_code")
+  siteName  String   @map("site_name")
+  location  String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vehicles  Vehicle[]
+  drivers   Driver[]
+  supervisorSites SupervisorSite[]
+  userAssignments UserSiteAssignment[]
+  contactAssignments ContactSiteAssignment[]
+  tanks     Tank[]
+  equipment Equipment[]
+  fuelEntries FuelEntry[]
+  dailyChecks DailyCheck[]
+
+  @@index([tenantId])
+  @@unique([tenantId, siteCode])
+  @@map("sites")
+}
+
+model Vehicle {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  fleetNumber String    @map("fleet_number")
+  plateNumber String?   @map("plate_number")
+  vehicleMake String?   @map("vehicle_make")
+  vehicleModel String?  @map("vehicle_model")
+  vehicleType String?   @map("vehicle_type")
+  siteId      String?   @map("site_id") @db.Uuid
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site        Site?     @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  drivers     Driver[]  @relation("VehicleDriverAssignments")
+  fuelCards   FuelCard[]
+  fuelEntries FuelEntry[]
+  dailyChecks DailyCheck[]
+  complianceRecords ComplianceRecord[] @relation("ComplianceRecordVehicle")
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@unique([tenantId, fleetNumber])
+  @@unique([tenantId, plateNumber])
+  @@map("vehicles")
+}
+
+model FuelCard {
+  id               String   @id @default(uuid()) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  cardNumber       String   @map("card_number")
+  provider         String?
+  assignedVehicleId String? @map("assigned_vehicle_id") @db.Uuid
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedVehicle  Vehicle? @relation(fields: [assignedVehicleId], references: [id], onDelete: SetNull)
+  fuelEntries      FuelEntry[]
+
+  @@index([tenantId])
+  @@index([assignedVehicleId])
+  @@unique([tenantId, cardNumber])
+  @@map("fuel_cards")
+}
+
+model OnboardingImportBatch {
+  id             String                     @id @default(uuid()) @db.Uuid
+  tenantId       String                     @map("tenant_id") @db.Uuid
+  status         OnboardingImportBatchStatus @default(UPLOADED)
+  createdBy      String                     @map("created_by") @db.Uuid
+  sourceFilePath String?                    @map("source_file_path")
+  previewJson    Json?                      @map("preview_json")
+  errorsCount    Int                        @default(0) @map("errors_count")
+  warningsCount  Int                        @default(0) @map("warnings_count")
+  createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant         Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  creator        PlatformUser               @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([createdBy])
+  @@map("onboarding_import_batches")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String?  @map("tenant_id") @db.Uuid
+  actorId   String?  @map("actor_id") @db.Uuid
+  actorType String   @map("actor_type")
+  eventType String   @map("event_type")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+model TenantNotificationSettings {
+  id                          String                    @id @default(uuid()) @db.Uuid
+  tenantId                    String                    @unique @map("tenant_id") @db.Uuid
+  notificationsEnabled        Boolean                   @default(false) @map("notifications_enabled")
+  whatsappEnabled             Boolean                   @default(false) @map("whatsapp_enabled")
+  emailEnabled                Boolean                   @default(false) @map("email_enabled")
+  smsEnabled                  Boolean                   @default(false) @map("sms_enabled")
+  recipientScope              NotificationRecipientScope @default(ALL_TENANT_OPERATIONS) @map("recipient_scope")
+  customRecipients            Json?                     @map("custom_recipients")
+  eventMissingDailyCheck      Boolean                   @default(true) @map("event_missing_daily_check")
+  eventCriticalChecklistIssue Boolean                   @default(true) @map("event_critical_checklist_issue")
+  eventFuelMissingReceipt     Boolean                   @default(true) @map("event_fuel_missing_receipt")
+  eventOdometerFallbackUsed   Boolean                   @default(true) @map("event_odometer_fallback_used")
+  eventApprovedSourceUsed     Boolean                   @default(true) @map("event_approved_source_used")
+  eventHighPriorityExceptions Boolean                   @default(true) @map("event_high_priority_exceptions")
+  eventComplianceExpired      Boolean                   @default(true) @map("event_compliance_expired")
+  eventComplianceExpiringSoon Boolean                   @default(true) @map("event_compliance_expiring_soon")
+  providerConfig              Json?                     @map("provider_config")
+  createdAt                   DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant                      Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("tenant_notification_settings")
+}
+
+model NotificationOutbox {
+  id               String                     @id @default(uuid()) @db.Uuid
+  tenantId         String                     @map("tenant_id") @db.Uuid
+  channel          NotificationChannel
+  eventType        NotificationEventType      @map("event_type")
+  sourceRecordId   String?                    @map("source_record_id") @db.Uuid
+  idempotencyKey   String                     @unique @map("idempotency_key")
+  recipient        String?
+  recipientLabel   String?                    @map("recipient_label")
+  payload          Json
+  status           NotificationDispatchStatus @default(PENDING)
+  attemptCount     Int                        @default(0) @map("attempt_count")
+  maxAttempts      Int                        @default(5) @map("max_attempts")
+  nextAttemptAt    DateTime                   @default(now()) @map("next_attempt_at") @db.Timestamptz(6)
+  providerName     String?                    @map("provider_name")
+  lastErrorCode    String?                    @map("last_error_code")
+  lastErrorMessage String?                    @map("last_error_message")
+  dispatchedAt     DateTime?                  @map("dispatched_at") @db.Timestamptz(6)
+  createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant           Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveries       NotificationDelivery[]
+
+  @@index([tenantId])
+  @@index([tenantId, status, nextAttemptAt])
+  @@index([eventType, sourceRecordId])
+  @@map("notification_outbox")
+}
+
+model NotificationDelivery {
+  id               String                     @id @default(uuid()) @db.Uuid
+  outboxId         String                     @map("outbox_id") @db.Uuid
+  tenantId         String                     @map("tenant_id") @db.Uuid
+  providerName     String                     @map("provider_name")
+  recipient        String?
+  status           NotificationDispatchStatus
+  attemptNumber    Int                        @map("attempt_number")
+  responseCode     Int?                       @map("response_code")
+  providerMessageId String?                   @map("provider_message_id")
+  errorCode        String?                    @map("error_code")
+  errorMessage     String?                    @map("error_message")
+  createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  outbox           NotificationOutbox         @relation(fields: [outboxId], references: [id], onDelete: Cascade)
+  tenant           Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([outboxId])
+  @@index([tenantId, createdAt])
+  @@map("notification_deliveries")
+}
+
+model ContactDirectoryEntry {
+  id          String               @id @default(uuid()) @db.Uuid
+  tenantId    String               @map("tenant_id") @db.Uuid
+  userId      String?              @map("user_id") @db.Uuid
+  name        String
+  role        ContactDirectoryRole
+  phoneE164   String?              @map("phone_e164")
+  email       String?
+  isActive    Boolean              @default(true) @map("is_active")
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  siteAssignments ContactSiteAssignment[]
+
+  @@index([tenantId])
+  @@index([tenantId, role, isActive])
+  @@index([userId])
+  @@unique([tenantId, userId])
+  @@unique([tenantId, phoneE164])
+  @@map("contact_directory_entries")
+}
+
+model ContactSiteAssignment {
+  id         String               @id @default(uuid()) @db.Uuid
+  tenantId   String               @map("tenant_id") @db.Uuid
+  contactId  String               @map("contact_id") @db.Uuid
+  siteId     String               @map("site_id") @db.Uuid
+  createdAt  DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant     Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact    ContactDirectoryEntry @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  site       Site                 @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([contactId])
+  @@index([siteId])
+  @@unique([tenantId, contactId, siteId])
+  @@map("contact_site_assignments")
+}
+
+model Tank {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  siteId        String   @map("site_id") @db.Uuid
+  tankName      String   @map("tank_name")
+  capacityL     Decimal  @map("capacity_l") @db.Decimal(12, 2)
+  reorderLevelL Decimal  @map("reorder_level_l") @db.Decimal(12, 2)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site          Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  fuelEntries   FuelEntry[]
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@unique([tenantId, siteId, tankName])
+  @@map("tanks")
+}
+
+model Equipment {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  equipmentCode String   @map("equipment_code")
+  equipmentName String   @map("equipment_name")
+  siteId        String?  @map("site_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site          Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@unique([tenantId, equipmentCode])
+  @@map("equipment")
+}
+
+model FuelEntry {
+  id            String         @id @default(uuid()) @db.Uuid
+  tenantId      String         @map("tenant_id") @db.Uuid
+  siteId        String?        @map("site_id") @db.Uuid
+  vehicleId     String         @map("vehicle_id") @db.Uuid
+  driverId      String?        @map("driver_id") @db.Uuid
+  entryDate     DateTime       @map("entry_date") @db.Date
+  entryTime     String?        @map("entry_time")
+  odometerKm    Int?           @map("odometer_km")
+  liters        Decimal        @db.Decimal(12, 2)
+  sourceType    FuelSourceType @map("source_type")
+  fuelCardId    String?        @map("fuel_card_id") @db.Uuid
+  tankId        String?        @map("tank_id") @db.Uuid
+  fuelStationId String?        @map("fuel_station_id")
+  approvedSourceContext String? @map("approved_source_context")
+  odometerFallbackUsed Boolean @default(false) @map("odometer_fallback_used")
+  odometerFallbackReason String? @map("odometer_fallback_reason")
+  receiptUrl    String?        @map("receipt_url")
+  notes         String?
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy     String?        @map("created_by") @db.Uuid
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site          Site?          @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  vehicle       Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  driver        User?          @relation("FuelEntryDriver", fields: [driverId], references: [id], onDelete: SetNull)
+  fuelCard      FuelCard?      @relation(fields: [fuelCardId], references: [id], onDelete: SetNull)
+  tank          Tank?          @relation(fields: [tankId], references: [id], onDelete: SetNull)
+  createdByUser User?          @relation("FuelEntryCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([siteId])
+  @@index([fuelCardId])
+  @@index([tankId])
+  @@index([entryDate, createdAt])
+  @@map("fuel_entries")
+}
+
+model DailyCheck {
+  id        String           @id @default(uuid()) @db.Uuid
+  tenantId  String           @map("tenant_id") @db.Uuid
+  siteId    String?          @map("site_id") @db.Uuid
+  vehicleId String           @map("vehicle_id") @db.Uuid
+  driverId  String?          @map("driver_id") @db.Uuid
+  checkDate DateTime         @map("check_date") @db.Date
+  status    DailyCheckStatus @default(DRAFT)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String?          @map("created_by") @db.Uuid
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site      Site?            @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  vehicle   Vehicle          @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  driver    User?            @relation("DailyCheckDriver", fields: [driverId], references: [id], onDelete: SetNull)
+  items     DailyCheckItem[]
+  creator   User?            @relation("DailyCheckCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([siteId])
+  @@index([checkDate, status])
+  @@unique([tenantId, vehicleId, checkDate])
+  @@map("daily_checks")
+}
+
+model DailyCheckItem {
+  id           String               @id @default(uuid()) @db.Uuid
+  dailyCheckId String               @map("daily_check_id") @db.Uuid
+  itemCode     String               @map("item_code")
+  status       DailyCheckItemStatus
+  notes        String?
+  photoUrl     String?              @map("photo_url")
+  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  dailyCheck   DailyCheck           @relation(fields: [dailyCheckId], references: [id], onDelete: Cascade)
+  item         ChecklistItemMaster  @relation(fields: [itemCode], references: [itemCode], onDelete: Restrict)
+
+  @@index([dailyCheckId])
+  @@index([itemCode])
+  @@unique([dailyCheckId, itemCode])
+  @@map("daily_check_items")
+}
+
+model ComplianceType {
+  id             String             @id @default(uuid()) @db.Uuid
+  tenantId       String             @map("tenant_id") @db.Uuid
+  name           String
+  appliesTo      ComplianceAppliesTo @map("applies_to")
+  requiresExpiry Boolean            @default(true) @map("requires_expiry")
+  isActive       Boolean            @default(true) @map("is_active")
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  records        ComplianceRecord[]
+
+  @@index([tenantId])
+  @@unique([tenantId, appliesTo, name])
+  @@map("compliance_types")
+}
+
+model ComplianceRecord {
+  id             String             @id @default(uuid()) @db.Uuid
+  tenantId       String             @map("tenant_id") @db.Uuid
+  complianceTypeId String           @map("compliance_type_id") @db.Uuid
+  appliesTo      ComplianceAppliesTo @map("applies_to")
+  targetUserId   String?            @map("target_user_id") @db.Uuid
+  targetVehicleId String?           @map("target_vehicle_id") @db.Uuid
+  referenceNumber String?           @map("reference_number")
+  issuedAt       DateTime?          @map("issued_at") @db.Date
+  expiryDate     DateTime?          @map("expiry_date") @db.Date
+  notes          String?
+  evidenceUrl    String?            @map("evidence_url")
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy      String?            @map("created_by") @db.Uuid
+  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  complianceType ComplianceType     @relation(fields: [complianceTypeId], references: [id], onDelete: Restrict)
+  targetUser     User?              @relation("ComplianceRecordDriver", fields: [targetUserId], references: [id], onDelete: SetNull)
+  targetVehicle  Vehicle?           @relation("ComplianceRecordVehicle", fields: [targetVehicleId], references: [id], onDelete: SetNull)
+  createdByUser  User?              @relation("ComplianceRecordCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([complianceTypeId])
+  @@index([targetUserId])
+  @@index([targetVehicleId])
+  @@index([expiryDate])
+  @@index([tenantId, appliesTo, expiryDate])
+  @@map("compliance_records")
+}
+
+model ChecklistSectionMaster {
+  sectionCode String               @id @map("section_code")
+  sectionName String               @map("section_name")
+  sortOrder   Int                  @default(0) @map("sort_order")
+  isActive    Boolean              @default(true) @map("is_active")
+  items       ChecklistItemMaster[]
+
+  @@map("checklist_sections_master")
+}
+
+model ChecklistItemMaster {
+  itemCode     String           @id @map("item_code")
+  sectionCode  String           @map("section_code")
+  itemName     String           @map("item_name")
+  sortOrder    Int              @default(0) @map("sort_order")
+  isActive     Boolean          @default(true) @map("is_active")
+  requiredItem Boolean          @default(false) @map("required")
+  section      ChecklistSectionMaster @relation(fields: [sectionCode], references: [sectionCode], onDelete: Restrict)
+  dailyCheckItems DailyCheckItem[]
+
+  @@index([sectionCode, sortOrder])
+  @@map("checklist_items_master")
+}

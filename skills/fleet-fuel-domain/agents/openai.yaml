@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fleet Fuel Domain"
+  short_description: "Core multi-tenant Fleet Fuel domain rules and entity model."
+  default_prompt: "Apply Fleet Fuel domain rules and relationships to architecture, backend, QA, and product decisions."

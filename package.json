@@ -1,0 +1,27 @@
+{
+  "name": "fleet-fuel-platform",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev:prepare": "pnpm --filter @fleet-fuel/shared build && pnpm --filter @fleet-fuel/api prisma:generate",
+    "dev": "pnpm run dev:prepare && concurrently -n api,admin,driver -c blue,green,magenta \"pnpm --filter @fleet-fuel/api dev\" \"pnpm --filter @fleet-fuel/admin-web dev\" \"pnpm --filter @fleet-fuel/driver-pwa dev\"",
+    "build": "pnpm run dev:prepare && pnpm -r --if-present build",
+    "typecheck": "pnpm run dev:prepare && pnpm -r --if-present typecheck",
+    "lint": "eslint .",
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
+    "test": "pnpm -r --if-present test",
+    "deploy:build": "pnpm run build",
+    "deploy:migrate": "pnpm -C apps/api prisma migrate deploy",
+    "deploy:boot:api": "pnpm -C apps/api prisma generate && pnpm -C apps/api prisma migrate deploy && pnpm -C apps/api start",
+    "postinstall": "pnpm run dev:prepare"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.18.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "typescript-eslint": "^8.20.0"
+  }
+}

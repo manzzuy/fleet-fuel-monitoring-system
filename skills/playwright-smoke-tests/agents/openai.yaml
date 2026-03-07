@@ -1,0 +1,4 @@
+interface:
+  display_name: "Playwright Smoke Tests"
+  short_description: "Playwright MCP smoke checks for Fleet Fuel UI workflows."
+  default_prompt: "Run Playwright MCP smoke checks for Fleet Fuel tenant login, dashboard navigation, admin dashboard, and driver PWA flows; report only observed behavior and failures with page/action/evidence."

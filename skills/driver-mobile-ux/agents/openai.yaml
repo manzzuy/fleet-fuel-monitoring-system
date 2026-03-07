@@ -1,0 +1,4 @@
+interface:
+  display_name: "Driver Mobile UX"
+  short_description: "Mobile UX and ergonomics rules for field drivers."
+  default_prompt: "Use $driver-mobile-ux to design or review driver-facing PWA flows for field use."

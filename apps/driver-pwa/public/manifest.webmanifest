@@ -1,0 +1,17 @@
+{
+  "name": "Fleet Fuel Driver",
+  "short_name": "FuelDriver",
+  "description": "Tenant-aware driver shell for fleet-fuel-platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1b1e",
+  "theme_color": "#163036",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
