@@ -34,7 +34,14 @@ export function resolveTenant(request: Pick<Request, 'headers' | 'query'>) {
   }
 
   const host = getEffectiveHost(request.headers.host, request.headers['x-forwarded-host']);
-  return extractTenantSubdomain(host, env.PLATFORM_BASE_DOMAIN);
+  const hostSubdomain = extractTenantSubdomain(host, env.PLATFORM_BASE_DOMAIN);
+  if (hostSubdomain) {
+    return hostSubdomain;
+  }
+
+  const hostname = host?.split(':')[0] ?? '';
+  const fallbackSubdomain = hostname.split('.')[0] ?? '';
+  return TENANT_OVERRIDE_REGEX.test(fallbackSubdomain) ? fallbackSubdomain : null;
 }
 
 export async function resolveTenantFromSubdomain(subdomain: string | null | undefined): Promise<TenantContext | null> {
