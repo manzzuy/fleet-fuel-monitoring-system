@@ -1,12 +1,20 @@
 import { headers } from 'next/headers';
 
 import { DriverDailyCheck } from '../../components/driver-daily-check';
-import { resolveTenantSubdomain } from '../../lib/tenant';
+import { resolveTenantHost, resolveTenantSubdomain } from '../../lib/tenant';
 
-export default function DriverDailyChecksPage() {
+interface DriverDailyChecksPageProps {
+  searchParams?: {
+    tenant?: string | string[];
+  };
+}
+
+export default function DriverDailyChecksPage({ searchParams }: DriverDailyChecksPageProps) {
   const requestHeaders = headers();
   const host = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host');
-  const subdomain = resolveTenantSubdomain(host);
+  const tenantOverride = searchParams?.tenant;
+  const tenantHost = resolveTenantHost(host, tenantOverride);
+  const subdomain = resolveTenantSubdomain(host, tenantOverride);
 
-  return <DriverDailyCheck host={host} subdomain={subdomain} />;
+  return <DriverDailyCheck host={tenantHost} subdomain={subdomain} />;
 }

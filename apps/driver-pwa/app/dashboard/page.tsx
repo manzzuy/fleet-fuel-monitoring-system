@@ -1,12 +1,20 @@
 import { headers } from 'next/headers';
 
 import { DriverDashboard } from '../../components/driver-dashboard';
-import { resolveTenantSubdomain } from '../../lib/tenant';
+import { resolveTenantHost, resolveTenantSubdomain } from '../../lib/tenant';
 
-export default function DriverDashboardPage() {
+interface DriverDashboardPageProps {
+  searchParams?: {
+    tenant?: string | string[];
+  };
+}
+
+export default function DriverDashboardPage({ searchParams }: DriverDashboardPageProps) {
   const requestHeaders = headers();
   const host = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host');
-  const subdomain = resolveTenantSubdomain(host);
+  const tenantOverride = searchParams?.tenant;
+  const tenantHost = resolveTenantHost(host, tenantOverride);
+  const subdomain = resolveTenantSubdomain(host, tenantOverride);
 
-  return <DriverDashboard host={host} subdomain={subdomain} />;
+  return <DriverDashboard host={tenantHost} subdomain={subdomain} />;
 }

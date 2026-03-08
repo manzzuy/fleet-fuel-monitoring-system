@@ -1,12 +1,20 @@
 import { headers } from 'next/headers';
 
 import { DriverFuelEntry } from '../../components/driver-fuel-entry';
-import { resolveTenantSubdomain } from '../../lib/tenant';
+import { resolveTenantHost, resolveTenantSubdomain } from '../../lib/tenant';
 
-export default function DriverFuelEntryPage() {
+interface DriverFuelEntryPageProps {
+  searchParams?: {
+    tenant?: string | string[];
+  };
+}
+
+export default function DriverFuelEntryPage({ searchParams }: DriverFuelEntryPageProps) {
   const requestHeaders = headers();
   const host = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host');
-  const subdomain = resolveTenantSubdomain(host);
+  const tenantOverride = searchParams?.tenant;
+  const tenantHost = resolveTenantHost(host, tenantOverride);
+  const subdomain = resolveTenantSubdomain(host, tenantOverride);
 
-  return <DriverFuelEntry host={host} subdomain={subdomain} />;
+  return <DriverFuelEntry host={tenantHost} subdomain={subdomain} />;
 }

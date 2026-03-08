@@ -7,13 +7,17 @@ interface DailyCheckDetailPageProps {
   params: {
     id: string;
   };
+  searchParams?: {
+    tenant?: string | string[];
+  };
 }
 
-export default function DailyCheckDetailPage({ params }: DailyCheckDetailPageProps) {
+export default function DailyCheckDetailPage({ params, searchParams }: DailyCheckDetailPageProps) {
   const requestHeaders = headers();
   const host = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host');
-  const tenantHost = resolveTenantHost(host);
-  const subdomain = resolveTenantSubdomain(host);
+  const tenantOverride = searchParams?.tenant;
+  const tenantHost = resolveTenantHost(host, tenantOverride);
+  const subdomain = resolveTenantSubdomain(host, tenantOverride);
 
   return (
     <main>
