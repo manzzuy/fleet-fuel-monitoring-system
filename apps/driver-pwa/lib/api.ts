@@ -44,8 +44,24 @@ function tenantHeaders(host: string, token?: string): HeadersInit {
   };
 }
 
+function tenantFromHost(host: string) {
+  const normalized = host.trim().toLowerCase();
+  const hostname = normalized.split(':')[0] ?? '';
+  const firstLabel = hostname.split('.')[0] ?? '';
+  return firstLabel || null;
+}
+
+function withTenantQuery(url: string, host: string) {
+  const tenant = tenantFromHost(host);
+  if (!tenant) {
+    return url;
+  }
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}tenant=${encodeURIComponent(tenant)}`;
+}
+
 export async function tenantLogin(tenantHost: string, payload: TenantLoginRequest): Promise<TenantLoginResponse> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/auth/login`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/auth/login`, tenantHost), {
     method: 'POST',
     headers: {
       ...tenantHeaders(tenantHost),
@@ -64,16 +80,16 @@ export async function fetchTenantedHealth(host: string | null | undefined, token
     throw new Error('Tenant host could not be resolved from the current request host.');
   }
 
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/health`, {
+  const responseWithTenant = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/health`, tenantHost), {
     headers: tenantHeaders(tenantHost, token),
     cache: 'no-store',
   });
 
-  return parseJson<TenantedHealthResponse>(response);
+  return parseJson<TenantedHealthResponse>(responseWithTenant);
 }
 
 export async function getDriverDashboard(tenantHost: string, token: string) {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/driver/dashboard`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/driver/dashboard`, tenantHost), {
     headers: tenantHeaders(tenantHost, token),
     cache: 'no-store',
   });
@@ -82,7 +98,7 @@ export async function getDriverDashboard(tenantHost: string, token: string) {
 }
 
 export async function getDriverVehicles(tenantHost: string, token: string) {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/driver/vehicles`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/driver/vehicles`, tenantHost), {
     headers: tenantHeaders(tenantHost, token),
     cache: 'no-store',
   });
@@ -91,7 +107,7 @@ export async function getDriverVehicles(tenantHost: string, token: string) {
 }
 
 export async function getDriverChecklistMaster(tenantHost: string, token: string) {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/driver/checklists/master`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/driver/checklists/master`, tenantHost), {
     headers: tenantHeaders(tenantHost, token),
     cache: 'no-store',
   });
@@ -100,7 +116,7 @@ export async function getDriverChecklistMaster(tenantHost: string, token: string
 }
 
 export async function createDriverDailyCheck(tenantHost: string, token: string, payload: CreateDriverDailyCheckRequest) {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/driver/daily-checks`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/driver/daily-checks`, tenantHost), {
     method: 'POST',
     headers: {
       ...tenantHeaders(tenantHost, token),
@@ -118,16 +134,19 @@ export async function submitDriverDailyCheck(
   checkId: string,
   payload: { items: Array<{ item_code: string; status: 'OK' | 'NOT_OK' | 'NA'; notes?: string; photo_url?: string }> },
 ) {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/driver/daily-checks/${checkId}/submit`, {
-    method: 'PUT',
-    headers: {
-      ...tenantHeaders(tenantHost, token),
-      'content-type': 'application/json',
+  const responseWithTenant = await fetch(
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/driver/daily-checks/${checkId}/submit`, tenantHost),
+    {
+      method: 'PUT',
+      headers: {
+        ...tenantHeaders(tenantHost, token),
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
+  );
 
-  return parseJson<{ id: string; status: 'DRAFT' | 'SUBMITTED'; request_id: string }>(response);
+  return parseJson<{ id: string; status: 'DRAFT' | 'SUBMITTED'; request_id: string }>(responseWithTenant);
 }
 
 export async function createDriverFuelEntry(
@@ -135,7 +154,7 @@ export async function createDriverFuelEntry(
   token: string,
   payload: CreateDriverFuelEntryRequest,
 ) {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/driver/fuel-entries`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/driver/fuel-entries`, tenantHost), {
     method: 'POST',
     headers: {
       ...tenantHeaders(tenantHost, token),
@@ -151,7 +170,7 @@ export async function uploadDriverReceipt(tenantHost: string, token: string, fil
   const form = new FormData();
   form.append('receipt', file);
 
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/driver/receipts/upload`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/driver/receipts/upload`, tenantHost), {
     method: 'POST',
     headers: tenantHeaders(tenantHost, token),
     body: form,

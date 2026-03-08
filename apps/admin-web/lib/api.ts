@@ -98,6 +98,22 @@ async function parseJson<T>(response: Response): Promise<T> {
   return payload as T;
 }
 
+function tenantFromHost(host: string) {
+  const normalized = host.trim().toLowerCase();
+  const hostname = normalized.split(':')[0] ?? '';
+  const firstLabel = hostname.split('.')[0] ?? '';
+  return firstLabel || null;
+}
+
+function withTenantQuery(url: string, tenantHost: string) {
+  const tenant = tenantFromHost(tenantHost);
+  if (!tenant) {
+    return url;
+  }
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}tenant=${encodeURIComponent(tenant)}`;
+}
+
 export async function platformLogin(payload: PlatformLoginRequest): Promise<PlatformLoginResponse> {
   const response = await fetch(`${appConfig.apiBaseUrl}/auth/platform-login`, {
     method: 'POST',
@@ -114,7 +130,7 @@ export async function tenantLogin(
   tenantHost: string,
   payload: TenantLoginRequest,
 ): Promise<TenantLoginResponse> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/auth/login`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/auth/login`, tenantHost), {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -156,7 +172,7 @@ export async function fetchTenantedHealth(
   tenantHost: string,
   accessToken?: string,
 ): Promise<TenantedHealthResponse> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/health`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/health`, tenantHost), {
     headers: {
       'x-forwarded-host': tenantHost,
       ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
@@ -171,7 +187,7 @@ export async function fetchTenantedSystemStatus(
   tenantHost: string,
   accessToken: string,
 ): Promise<TenantedSystemStatusResponse> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/system/status`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/system/status`, tenantHost), {
     headers: {
       'x-forwarded-host': tenantHost,
       authorization: `Bearer ${accessToken}`,
@@ -186,7 +202,7 @@ export async function getTenantDashboardSummary(
   tenantHost: string,
   accessToken: string,
 ): Promise<TenantDashboardSummaryResponse> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/dashboard/summary`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/dashboard/summary`, tenantHost), {
     headers: {
       'x-forwarded-host': tenantHost,
       authorization: `Bearer ${accessToken}`,
@@ -210,7 +226,10 @@ export async function getTenantDashboardAlerts(
   }
 
   const response = await fetch(
-    `${appConfig.apiBaseUrl}/tenanted/dashboard/alerts${params.toString() ? `?${params.toString()}` : ''}`,
+    withTenantQuery(
+      `${appConfig.apiBaseUrl}/tenanted/dashboard/alerts${params.toString() ? `?${params.toString()}` : ''}`,
+      tenantHost,
+    ),
     {
       headers: {
         'x-forwarded-host': tenantHost,
