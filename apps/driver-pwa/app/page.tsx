@@ -4,7 +4,8 @@ import { DriverLogin } from '../components/driver-login';
 import { resolveTenantSubdomain } from '../lib/tenant';
 
 export default async function DriverHomePage() {
-  const host = headers().get('host');
+  const requestHeaders = headers();
+  const host = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host');
   const subdomain = resolveTenantSubdomain(host);
 
   return (

@@ -4,7 +4,8 @@ import { TenantDashboardShell } from '../../components/tenant-dashboard-shell';
 import { resolveTenantHost, resolveTenantSubdomain } from '../../lib/tenant';
 
 export default function DashboardPage() {
-  const host = headers().get('host');
+  const requestHeaders = headers();
+  const host = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host');
   const tenantHost = resolveTenantHost(host);
   const subdomain = resolveTenantSubdomain(host);
 
