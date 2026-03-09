@@ -191,10 +191,20 @@ export function TenantSitesPage({ host, subdomain }: TenantSitesPageProps) {
                   <span>{row.site_code}</span>
                   <span>{row.site_name}</span>
                   <span>{row.location ?? '—'}</span>
-                  <span>{row.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
                   <span>
-                    <button className="button button-secondary" type="button" onClick={() => startEdit(row)}>
-                      Edit
+                    <span className={`status-pill ${row.is_active ? 'good' : 'issue'}`}>
+                      {row.is_active ? '🟢 Active' : '🔴 Inactive'}
+                    </span>
+                  </span>
+                  <span className="edit-action-cell">
+                    <button
+                      aria-label={`Edit ${row.site_code}`}
+                      className="button button-secondary edit-icon-button"
+                      title="Edit site"
+                      type="button"
+                      onClick={() => startEdit(row)}
+                    >
+                      ✎
                     </button>
                   </span>
                 </div>
@@ -221,7 +231,7 @@ export function TenantSitesPage({ host, subdomain }: TenantSitesPageProps) {
                         />
                         <span>Active</span>
                       </label>
-                      <div className="toolbar">
+                      <div className="edit-actions">
                         <button className="button" type="button" onClick={() => void saveEdit()} disabled={saving}>
                           {saving ? 'Saving…' : 'Save'}
                         </button>
@@ -258,7 +268,7 @@ export function TenantSitesPage({ host, subdomain }: TenantSitesPageProps) {
               />
               <span>Active</span>
             </label>
-            <div className="toolbar">
+            <div className="edit-actions">
               <button className="button" type="button" onClick={() => void saveEdit()} disabled={saving}>
                 {saving ? 'Saving…' : 'Save'}
               </button>

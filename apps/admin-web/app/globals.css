@@ -96,6 +96,13 @@ main {
   border-radius: 24px;
   padding: 24px;
   backdrop-filter: blur(14px);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  animation: card-fade-in 220ms ease both;
+}
+
+.card:hover {
+  border-color: rgba(0, 125, 111, 0.26);
+  box-shadow: 0 8px 22px rgba(20, 42, 42, 0.08);
 }
 
 .eyebrow {
@@ -189,6 +196,12 @@ dd {
   color: white;
   font-weight: 600;
   cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0, 125, 111, 0.22);
 }
 
 .button-secondary {
@@ -222,6 +235,7 @@ dd {
   margin-top: 16px;
   display: grid;
   gap: 8px;
+  overflow-x: auto;
 }
 
 .table-row {
@@ -232,6 +246,13 @@ dd {
   border: 1px solid var(--border);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.72);
+  align-items: center;
+  min-width: 780px;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.table-row:hover {
+  border-color: rgba(0, 125, 111, 0.24);
 }
 
 .table-head {
@@ -311,6 +332,31 @@ dd {
   letter-spacing: 0.08em;
 }
 
+.kpi-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi-card::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(0, 125, 111, 0.88), rgba(40, 173, 160, 0.5));
+  transform-origin: left;
+  transform: scaleX(0.35);
+  transition: transform 240ms ease;
+}
+
+.kpi-card:hover::after {
+  transform: scaleX(1);
+}
+
+.kpi-card-animated {
+  animation: kpi-rise 280ms ease both;
+}
+
 .kpi-value {
   margin-top: 10px;
   font-size: 34px;
@@ -361,20 +407,28 @@ dd {
   grid-template-columns: 0.8fr 0.9fr 0.8fr 1fr 1.2fr 0.6fr;
 }
 
+.drivers-master-row {
+  grid-template-columns: 1.3fr 0.9fr 0.9fr 1fr 0.9fr 0.7fr 1.2fr;
+}
+
 .drivers-table-row {
-  grid-template-columns: 1.4fr 0.8fr 0.9fr;
+  grid-template-columns: 1.3fr 0.9fr 0.9fr 0.9fr;
+}
+
+.vehicles-master-row {
+  grid-template-columns: 1fr 1fr 1.2fr 0.9fr 0.7fr 1.2fr;
 }
 
 .vehicles-table-row {
-  grid-template-columns: 1fr 1fr 1.3fr;
+  grid-template-columns: 1.2fr 0.9fr 0.9fr 0.9fr;
 }
 
 .sites-table-row {
-  grid-template-columns: 0.8fr 1.1fr 1.3fr 0.8fr;
+  grid-template-columns: 0.8fr 1.1fr 1.3fr 0.9fr 0.7fr;
 }
 
 .tanks-table-row {
-  grid-template-columns: 1fr 0.9fr 0.9fr 1.2fr;
+  grid-template-columns: 1fr 0.9fr 0.9fr 1.2fr 0.7fr;
 }
 
 .alerts-table-row {
@@ -392,6 +446,7 @@ dd {
   background: rgba(8, 133, 121, 0.06);
   border-color: rgba(8, 133, 121, 0.25);
   margin-top: -2px;
+  animation: row-expand 180ms ease both;
 }
 
 .severity-pill {
@@ -450,6 +505,47 @@ dd {
 
 .inline-grid.four {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.edit-action-cell {
+  display: flex;
+  justify-content: center;
+}
+
+.edit-icon-button {
+  min-width: 38px;
+  min-height: 38px;
+  border-radius: 10px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.edit-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.status-pill.good {
+  color: #146c54;
+}
+
+.status-pill.issue {
+  color: #9a351a;
 }
 
 .field.compact {
@@ -526,6 +622,39 @@ dd {
   }
 }
 
+@keyframes card-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes kpi-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes row-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 720px) {
   body {
     padding: 20px;
@@ -552,6 +681,7 @@ dd {
 
   .table-row {
     grid-template-columns: 1fr;
+    min-width: 0;
   }
 
   .inline-grid {

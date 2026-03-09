@@ -257,35 +257,35 @@ export function TenantDashboardShell({ host, subdomain }: TenantDashboardShellPr
       {scopeStatus === 'no_site_scope_assigned' ? <ScopeEmptyState /> : null}
 
       <section className="kpi-grid five" data-testid="dashboard-kpi-row">
-        <article className="card kpi-card">
+        <article className="card kpi-card kpi-card-animated" style={{ animationDelay: '0ms' }}>
           <h3>Missing Daily Checks</h3>
           <p className="kpi-value">{monitoringSummary.vehicles_missing_daily_check}</p>
           <small className="status">
             <Link href={`/daily-checks?date=${today}&skip_only=true`}>Open Daily Checks</Link>
           </small>
         </article>
-        <article className="card kpi-card">
+        <article className="card kpi-card kpi-card-animated" style={{ animationDelay: '50ms' }}>
           <h3>High-Risk Fuel Alerts</h3>
           <p className="kpi-value">{monitoringSummary.high_risk_fuel_alerts}</p>
           <small className="status">
             <Link href={`/alerts?date=${today}&alert_type=suspicious_high_risk_combination`}>Open Alerts</Link>
           </small>
         </article>
-        <article className="card kpi-card">
+        <article className="card kpi-card kpi-card-animated" style={{ animationDelay: '100ms' }}>
           <h3>Compliance Expired</h3>
           <p className="kpi-value">{monitoringSummary.compliance_expired}</p>
           <small className="status">
             <Link href={`/alerts?date=${today}&alert_type=compliance_expired`}>Open Compliance Alerts</Link>
           </small>
         </article>
-        <article className="card kpi-card">
+        <article className="card kpi-card kpi-card-animated" style={{ animationDelay: '150ms' }}>
           <h3>Compliance Expiring Soon</h3>
           <p className="kpi-value">{monitoringSummary.compliance_expiring_soon}</p>
           <small className="status">
             <Link href={`/alerts?date=${today}&alert_type=compliance_expiring_soon`}>Open Compliance Alerts</Link>
           </small>
         </article>
-        <article className="card kpi-card">
+        <article className="card kpi-card kpi-card-animated" style={{ animationDelay: '200ms' }}>
           <h3>Receipt Gaps</h3>
           <p className="kpi-value">{monitoringSummary.receipt_gaps}</p>
           <small className="status">

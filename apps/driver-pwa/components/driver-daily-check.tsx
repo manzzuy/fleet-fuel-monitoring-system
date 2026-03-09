@@ -283,7 +283,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
                           onClick={() => setItemStatus(item.item_code, status)}
                           type="button"
                         >
-                          {status}
+                          {status === 'OK' ? '🟢 Good' : status === 'NOT_OK' ? '🔴 Issue' : '⚪ N/A'}
                         </button>
                       ))}
                     </div>

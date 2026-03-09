@@ -294,7 +294,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
         {!loading && !error && rows.length === 0 ? <p className="status">No vehicles found.</p> : null}
         {!loading && !error && rows.length > 0 ? (
           <div className="table">
-            <div className="table-row table-head vehicles-table-row">
+            <div className="table-row table-head vehicles-master-row">
               <span>Fleet no</span>
               <span>Plate no</span>
               <span>Site</span>
@@ -304,14 +304,24 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
             </div>
             {rows.map((row) => (
               <Fragment key={row.id}>
-                <div className={`table-row vehicles-table-row ${editingId === row.id ? 'row-highlight' : ''}`}>
+                <div className={`table-row vehicles-master-row ${editingId === row.id ? 'row-highlight' : ''}`}>
                   <span>{row.fleet_no}</span>
                   <span>{row.plate_no ?? '—'}</span>
                   <span>{row.site ? `${row.site.site_code} - ${row.site.site_name}` : '—'}</span>
-                  <span>{row.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
                   <span>
-                    <button className="button button-secondary" type="button" onClick={() => startEdit(row)}>
-                      Edit
+                    <span className={`status-pill ${row.is_active ? 'good' : 'issue'}`}>
+                      {row.is_active ? '🟢 Active' : '🔴 Inactive'}
+                    </span>
+                  </span>
+                  <span className="edit-action-cell">
+                    <button
+                      aria-label={`Edit ${row.fleet_no}`}
+                      className="button button-secondary edit-icon-button"
+                      title="Edit vehicle"
+                      type="button"
+                      onClick={() => startEdit(row)}
+                    >
+                      ✎
                     </button>
                   </span>
                   <span>
@@ -364,7 +374,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
                         />
                         <span>Active</span>
                       </label>
-                      <div className="toolbar">
+                      <div className="edit-actions">
                         <button className="button" type="button" onClick={() => void saveVehicle()} disabled={vehicleSaving}>
                           {vehicleSaving ? 'Saving…' : 'Save'}
                         </button>
@@ -422,7 +432,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
               />
               <span>Active</span>
             </label>
-            <div className="toolbar">
+            <div className="edit-actions">
               <button className="button" type="button" onClick={() => void saveVehicle()} disabled={vehicleSaving}>
                 {vehicleSaving ? 'Saving…' : 'Save'}
               </button>

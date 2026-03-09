@@ -41,6 +41,12 @@ main {
   background: var(--panel);
   border-radius: 18px;
   padding: 16px;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  animation: panel-fade-in 180ms ease both;
+}
+
+.panel:has(.segmented) {
+  border-color: #cfe2dc;
 }
 
 .eyebrow {
@@ -95,7 +101,7 @@ ul {
 
 .field input,
 .field select {
-  min-height: 44px;
+  min-height: 48px;
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 12px;
@@ -105,7 +111,7 @@ ul {
 }
 
 .button {
-  min-height: 46px;
+  min-height: 52px;
   border-radius: 12px;
   border: 1px solid transparent;
   background: var(--accent);
@@ -117,6 +123,10 @@ ul {
 
 .button:disabled {
   opacity: 0.6;
+}
+
+.button:hover:not(:disabled) {
+  box-shadow: 0 8px 18px rgba(15, 143, 121, 0.2);
 }
 
 .button.ghost {
@@ -132,7 +142,7 @@ ul {
 }
 
 .tab {
-  min-height: 44px;
+  min-height: 50px;
   border: 1px solid var(--border);
   border-radius: 12px;
   display: flex;
@@ -171,7 +181,18 @@ ul {
   display: flex;
   gap: 10px;
   align-items: center;
-  min-height: 44px;
+  min-height: 48px;
+}
+
+@keyframes panel-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 560px) {

@@ -195,9 +195,15 @@ export function TenantTanksPage({ host, subdomain }: TenantTanksPageProps) {
                   <span>{row.capacity_l}</span>
                   <span>{row.reorder_level_l}</span>
                   <span>{row.site.site_code} - {row.site.site_name}</span>
-                  <span>
-                    <button className="button button-secondary" type="button" onClick={() => startEdit(row)}>
-                      Edit
+                  <span className="edit-action-cell">
+                    <button
+                      aria-label={`Edit ${row.tank_name}`}
+                      className="button button-secondary edit-icon-button"
+                      title="Edit tank"
+                      type="button"
+                      onClick={() => startEdit(row)}
+                    >
+                      ✎
                     </button>
                   </span>
                 </div>
@@ -230,7 +236,7 @@ export function TenantTanksPage({ host, subdomain }: TenantTanksPageProps) {
                           ))}
                         </select>
                       </label>
-                      <div className="toolbar">
+                      <div className="edit-actions">
                         <button className="button" type="button" onClick={() => void saveEdit()} disabled={saving}>
                           {saving ? 'Saving…' : 'Save'}
                         </button>
@@ -273,7 +279,7 @@ export function TenantTanksPage({ host, subdomain }: TenantTanksPageProps) {
                 ))}
               </select>
             </label>
-            <div className="toolbar">
+            <div className="edit-actions">
               <button className="button" type="button" onClick={() => void saveEdit()} disabled={saving}>
                 {saving ? 'Saving…' : 'Save'}
               </button>

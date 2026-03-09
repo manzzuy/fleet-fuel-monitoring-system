@@ -304,7 +304,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
         {!loading && !error && rows.length === 0 ? <p className="status">No drivers found.</p> : null}
         {!loading && !error && rows.length > 0 ? (
           <div className="table">
-            <div className="table-row table-head drivers-table-row">
+            <div className="table-row table-head drivers-master-row">
               <span>Full name</span>
               <span>Employee no</span>
               <span>Username</span>
@@ -315,15 +315,25 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
             </div>
             {rows.map((row) => (
               <Fragment key={row.id}>
-                <div className={`table-row drivers-table-row ${editingId === row.id ? 'row-highlight' : ''}`}>
+                <div className={`table-row drivers-master-row ${editingId === row.id ? 'row-highlight' : ''}`}>
                   <span>{row.full_name}</span>
                   <span>{row.employee_no ?? '—'}</span>
                   <span>{row.username ?? '—'}</span>
                   <span>{row.site ? `${row.site.site_code}` : '—'}</span>
-                  <span>{row.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
                   <span>
-                    <button className="button button-secondary" type="button" onClick={() => startEdit(row)}>
-                      Edit
+                    <span className={`status-pill ${row.is_active ? 'good' : 'issue'}`}>
+                      {row.is_active ? '🟢 Active' : '🔴 Inactive'}
+                    </span>
+                  </span>
+                  <span className="edit-action-cell">
+                    <button
+                      aria-label={`Edit ${row.full_name}`}
+                      className="button button-secondary edit-icon-button"
+                      title="Edit driver"
+                      type="button"
+                      onClick={() => startEdit(row)}
+                    >
+                      ✎
                     </button>
                   </span>
                   <span>
@@ -383,7 +393,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                         />
                         <span>Active</span>
                       </label>
-                      <div className="toolbar">
+                      <div className="edit-actions">
                         <button className="button" type="button" onClick={() => void saveDriver()} disabled={driverSaving}>
                           {driverSaving ? 'Saving…' : 'Save'}
                         </button>
@@ -448,7 +458,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
               />
               <span>Active</span>
             </label>
-            <div className="toolbar">
+            <div className="edit-actions">
               <button className="button" type="button" onClick={() => void saveDriver()} disabled={driverSaving}>
                 {driverSaving ? 'Saving…' : 'Save'}
               </button>
