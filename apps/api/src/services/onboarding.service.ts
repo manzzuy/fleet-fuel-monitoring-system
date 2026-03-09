@@ -30,6 +30,8 @@ const onboardingRequiredTables = [
   'equipment',
   'audit_logs',
 ] as const;
+const onboardingCommitTransactionTimeoutMs = 30_000;
+const onboardingCommitTransactionMaxWaitMs = 10_000;
 
 function toBatchRecord(batch: {
   id: string;
@@ -159,35 +161,41 @@ export async function commitOnboardingBatch(
     });
   }
 
-  const summary = await prisma.$transaction(async (tx) => {
-    const result = await commitOnboardingPreview(tx, batch.tenantId, preview);
+  const summary = await prisma.$transaction(
+    async (tx) => {
+      const result = await commitOnboardingPreview(tx, batch.tenantId, preview);
 
-    await tx.onboardingImportBatch.update({
-      where: { id: batch.id },
-      data: {
-        status: OnboardingImportBatchStatus.COMMITTED,
-        previewJson: preview as unknown as object,
-        errorsCount: 0,
-        warningsCount: preview.summary.warnings_count,
-      },
-    });
-
-    await tx.auditLog.create({
-      data: {
-        tenantId: batch.tenantId,
-        actorId: platformUserId,
-        actorType: 'PLATFORM',
-        eventType: 'ONBOARDING_BATCH_COMMITTED',
-        metadata: {
-          batch_id: batch.id,
-          summary: result,
-          temporary_password_policy: preview.initialPasswordPolicyWarning,
+      await tx.onboardingImportBatch.update({
+        where: { id: batch.id },
+        data: {
+          status: OnboardingImportBatchStatus.COMMITTED,
+          previewJson: preview as unknown as object,
+          errorsCount: 0,
+          warningsCount: preview.summary.warnings_count,
         },
-      },
-    });
+      });
 
-    return result;
-  });
+      await tx.auditLog.create({
+        data: {
+          tenantId: batch.tenantId,
+          actorId: platformUserId,
+          actorType: 'PLATFORM',
+          eventType: 'ONBOARDING_BATCH_COMMITTED',
+          metadata: {
+            batch_id: batch.id,
+            summary: result,
+            temporary_password_policy: preview.initialPasswordPolicyWarning,
+          },
+        },
+      });
+
+      return result;
+    },
+    {
+      maxWait: onboardingCommitTransactionMaxWaitMs,
+      timeout: onboardingCommitTransactionTimeoutMs,
+    },
+  );
 
   return {
     batch_id: batch.id,
