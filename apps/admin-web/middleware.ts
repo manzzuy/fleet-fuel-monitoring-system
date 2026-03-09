@@ -33,6 +33,7 @@ export function middleware(request: NextRequest) {
   const tenantFromCookie = normalizeTenant(request.cookies.get(TENANT_COOKIE)?.value ?? null);
   const platformBaseDomain = (process.env.NEXT_PUBLIC_PLATFORM_BASE_DOMAIN ?? 'platform.test').toLowerCase();
   const hostTenant = extractHostTenant(request.headers.get('host'), platformBaseDomain);
+  const pathname = request.nextUrl.pathname;
 
   if (tenantFromQuery) {
     const response = NextResponse.next();
@@ -45,7 +46,8 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  if (!hostTenant && tenantFromCookie) {
+  // Keep root path available for Platform Owner console on non-tenant hosts.
+  if (pathname !== '/' && !hostTenant && tenantFromCookie) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.searchParams.set(TENANT_QUERY_PARAM, tenantFromCookie);
     return NextResponse.redirect(redirectUrl);
