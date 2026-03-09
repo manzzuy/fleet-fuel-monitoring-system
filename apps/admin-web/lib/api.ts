@@ -321,7 +321,7 @@ export async function createFuelEntry(
   accessToken: string,
   payload: CreateFuelEntryRequest,
 ): Promise<{ entry: FuelEntriesListResponse['items'][number]; warnings: string[]; request_id: string }> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/fuel-entries`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/fuel-entries`, tenantHost), {
     method: 'POST',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -349,7 +349,7 @@ export async function listFuelEntries(
   }
 
   const response = await fetch(
-    `${appConfig.apiBaseUrl}/tenanted/fuel-entries${params.toString() ? `?${params.toString()}` : ''}`,
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/fuel-entries${params.toString() ? `?${params.toString()}` : ''}`, tenantHost),
     {
       headers: {
         'x-forwarded-host': tenantHost,
@@ -375,7 +375,7 @@ export async function listFuelLogs(
   }
 
   const response = await fetch(
-    `${appConfig.apiBaseUrl}/tenanted/fuel-logs${params.toString() ? `?${params.toString()}` : ''}`,
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/fuel-logs${params.toString() ? `?${params.toString()}` : ''}`, tenantHost),
     {
       headers: {
         'x-forwarded-host': tenantHost,
@@ -392,7 +392,7 @@ export async function getChecklistMaster(
   tenantHost: string,
   accessToken: string,
 ): Promise<ChecklistMasterResponse> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/checklists/master`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/checklists/master`, tenantHost), {
     headers: {
       'x-forwarded-host': tenantHost,
       authorization: `Bearer ${accessToken}`,
@@ -408,7 +408,7 @@ export async function createDailyCheck(
   accessToken: string,
   payload: CreateDailyCheckRequest,
 ): Promise<{ id: string; status: 'DRAFT' | 'SUBMITTED'; request_id: string }> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/daily-checks`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/daily-checks`, tenantHost), {
     method: 'POST',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -434,7 +434,7 @@ export async function listDailyChecks(
   }
 
   const response = await fetch(
-    `${appConfig.apiBaseUrl}/tenanted/daily-checks${params.toString() ? `?${params.toString()}` : ''}`,
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/daily-checks${params.toString() ? `?${params.toString()}` : ''}`, tenantHost),
     {
       headers: {
         'x-forwarded-host': tenantHost,
@@ -452,7 +452,7 @@ export async function getDailyCheck(
   accessToken: string,
   id: string,
 ): Promise<DailyCheckDetailsResponse> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/daily-checks/${id}`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/daily-checks/${id}`, tenantHost), {
     headers: {
       'x-forwarded-host': tenantHost,
       authorization: `Bearer ${accessToken}`,
@@ -469,7 +469,7 @@ export async function submitDailyCheck(
   id: string,
   payload: { items: Array<{ item_code: string; status: 'OK' | 'NOT_OK' | 'NA'; notes?: string; photo_url?: string }> },
 ): Promise<{ id: string; status: 'DRAFT' | 'SUBMITTED'; request_id: string }> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/daily-checks/${id}/submit`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/daily-checks/${id}/submit`, tenantHost), {
     method: 'PUT',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -495,7 +495,7 @@ export async function listTenantVehicles(
   }
 
   const response = await fetch(
-    `${appConfig.apiBaseUrl}/tenanted/vehicles${params.toString() ? `?${params.toString()}` : ''}`,
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/vehicles${params.toString() ? `?${params.toString()}` : ''}`, tenantHost),
     {
       headers: {
         'x-forwarded-host': tenantHost,
@@ -521,7 +521,7 @@ export async function listTenantDrivers(
   }
 
   const response = await fetch(
-    `${appConfig.apiBaseUrl}/tenanted/drivers${params.toString() ? `?${params.toString()}` : ''}`,
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/drivers${params.toString() ? `?${params.toString()}` : ''}`, tenantHost),
     {
       headers: {
         'x-forwarded-host': tenantHost,
@@ -546,7 +546,7 @@ export async function listMasterDrivers(
     }
   }
   const response = await fetch(
-    `${appConfig.apiBaseUrl}/tenanted/master-data/drivers${params.toString() ? `?${params.toString()}` : ''}`,
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/master-data/drivers${params.toString() ? `?${params.toString()}` : ''}`, tenantHost),
     {
       headers: {
         'x-forwarded-host': tenantHost,
@@ -563,7 +563,7 @@ export async function createMasterDriver(
   accessToken: string,
   payload: Required<Pick<MasterDriverWritePayload, 'full_name' | 'username'>> & MasterDriverWritePayload,
 ) {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/master-data/drivers`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/master-data/drivers`, tenantHost), {
     method: 'POST',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -581,7 +581,7 @@ export async function updateMasterDriver(
   driverId: string,
   payload: MasterDriverWritePayload,
 ) {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/master-data/drivers/${driverId}`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/master-data/drivers/${driverId}`, tenantHost), {
     method: 'PUT',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -606,7 +606,7 @@ export async function listComplianceTypes(
   }
 
   const response = await fetch(
-    `${appConfig.apiBaseUrl}/tenanted/compliance/types${params.toString() ? `?${params.toString()}` : ''}`,
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/compliance/types${params.toString() ? `?${params.toString()}` : ''}`, tenantHost),
     {
       headers: {
         'x-forwarded-host': tenantHost,
@@ -624,7 +624,7 @@ export async function createComplianceType(
   accessToken: string,
   payload: CreateComplianceTypeRequest,
 ): Promise<{ item: ComplianceTypesListResponse['items'][number]; request_id: string }> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/compliance/types`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/compliance/types`, tenantHost), {
     method: 'POST',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -643,7 +643,7 @@ export async function updateComplianceType(
   typeId: string,
   payload: UpdateComplianceTypeRequest,
 ): Promise<{ item: ComplianceTypesListResponse['items'][number]; request_id: string }> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/compliance/types/${typeId}`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/compliance/types/${typeId}`, tenantHost), {
     method: 'PUT',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -669,7 +669,7 @@ export async function listComplianceRecords(
   }
 
   const response = await fetch(
-    `${appConfig.apiBaseUrl}/tenanted/compliance/records${params.toString() ? `?${params.toString()}` : ''}`,
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/compliance/records${params.toString() ? `?${params.toString()}` : ''}`, tenantHost),
     {
       headers: {
         'x-forwarded-host': tenantHost,
@@ -687,7 +687,7 @@ export async function createComplianceRecord(
   accessToken: string,
   payload: CreateComplianceRecordRequest,
 ): Promise<{ item: ComplianceRecordsListResponse['items'][number]; request_id: string }> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/compliance/records`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/compliance/records`, tenantHost), {
     method: 'POST',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -713,7 +713,7 @@ export async function listTenantSites(
   }
 
   const response = await fetch(
-    `${appConfig.apiBaseUrl}/tenanted/sites${params.toString() ? `?${params.toString()}` : ''}`,
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/sites${params.toString() ? `?${params.toString()}` : ''}`, tenantHost),
     {
       headers: {
         'x-forwarded-host': tenantHost,
@@ -731,7 +731,7 @@ export async function createMasterSite(
   accessToken: string,
   payload: Required<Pick<MasterSiteWritePayload, 'site_code' | 'site_name'>> & MasterSiteWritePayload,
 ) {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/master-data/sites`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/master-data/sites`, tenantHost), {
     method: 'POST',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -749,7 +749,7 @@ export async function updateMasterSite(
   siteId: string,
   payload: MasterSiteWritePayload,
 ) {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/master-data/sites/${siteId}`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/master-data/sites/${siteId}`, tenantHost), {
     method: 'PUT',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -774,7 +774,7 @@ export async function listTenantTanks(
   }
 
   const response = await fetch(
-    `${appConfig.apiBaseUrl}/tenanted/tanks${params.toString() ? `?${params.toString()}` : ''}`,
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/tanks${params.toString() ? `?${params.toString()}` : ''}`, tenantHost),
     {
       headers: {
         'x-forwarded-host': tenantHost,
@@ -792,7 +792,7 @@ export async function createMasterTank(
   accessToken: string,
   payload: Required<Pick<MasterTankWritePayload, 'tank_name' | 'capacity_l' | 'reorder_level_l' | 'site_id'>>,
 ) {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/master-data/tanks`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/master-data/tanks`, tenantHost), {
     method: 'POST',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -810,7 +810,7 @@ export async function updateMasterTank(
   tankId: string,
   payload: MasterTankWritePayload,
 ) {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/master-data/tanks/${tankId}`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/master-data/tanks/${tankId}`, tenantHost), {
     method: 'PUT',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -834,7 +834,7 @@ export async function listMasterVehicles(
     }
   }
   const response = await fetch(
-    `${appConfig.apiBaseUrl}/tenanted/master-data/vehicles${params.toString() ? `?${params.toString()}` : ''}`,
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/master-data/vehicles${params.toString() ? `?${params.toString()}` : ''}`, tenantHost),
     {
       headers: {
         'x-forwarded-host': tenantHost,
@@ -851,7 +851,7 @@ export async function createMasterVehicle(
   accessToken: string,
   payload: Required<Pick<MasterVehicleWritePayload, 'fleet_no'>> & MasterVehicleWritePayload,
 ) {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/master-data/vehicles`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/master-data/vehicles`, tenantHost), {
     method: 'POST',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -869,7 +869,7 @@ export async function updateMasterVehicle(
   vehicleId: string,
   payload: MasterVehicleWritePayload,
 ) {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/master-data/vehicles/${vehicleId}`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/master-data/vehicles/${vehicleId}`, tenantHost), {
     method: 'PUT',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -885,7 +885,7 @@ export async function getTenantSettings(
   tenantHost: string,
   accessToken: string,
 ): Promise<TenantSettingsResponse> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/tenant/settings`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/tenant/settings`, tenantHost), {
     headers: {
       'x-forwarded-host': tenantHost,
       authorization: `Bearer ${accessToken}`,
@@ -901,7 +901,7 @@ export async function updateTenantNotificationSettings(
   accessToken: string,
   payload: UpdateTenantNotificationSettingsRequest,
 ): Promise<TenantSettingsResponse> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/tenant/settings/notifications`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/tenant/settings/notifications`, tenantHost), {
     method: 'PUT',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -918,7 +918,7 @@ export async function listNotificationContacts(
   tenantHost: string,
   accessToken: string,
 ): Promise<NotificationContactsListResponse> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/notification-contacts`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/notification-contacts`, tenantHost), {
     headers: {
       'x-forwarded-host': tenantHost,
       authorization: `Bearer ${accessToken}`,
@@ -934,7 +934,7 @@ export async function createNotificationContact(
   accessToken: string,
   payload: CreateNotificationContactRequest,
 ): Promise<{ item: NotificationContactsListResponse['items'][number]; request_id: string }> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/notification-contacts`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/notification-contacts`, tenantHost), {
     method: 'POST',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -953,7 +953,7 @@ export async function updateNotificationContact(
   contactId: string,
   payload: UpdateNotificationContactRequest,
 ): Promise<{ item: NotificationContactsListResponse['items'][number]; request_id: string }> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/notification-contacts/${contactId}`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/notification-contacts/${contactId}`, tenantHost), {
     method: 'PUT',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -972,7 +972,7 @@ export async function assignNotificationContactToSite(
   contactId: string,
   siteId: string,
 ): Promise<{ item: NotificationContactsListResponse['items'][number] | null; request_id: string }> {
-  const response = await fetch(`${appConfig.apiBaseUrl}/tenanted/notification-contacts/${contactId}/sites`, {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/notification-contacts/${contactId}/sites`, tenantHost), {
     method: 'POST',
     headers: {
       'x-forwarded-host': tenantHost,
@@ -992,7 +992,7 @@ export async function removeNotificationContactSiteAssignment(
   siteId: string,
 ): Promise<{ item: NotificationContactsListResponse['items'][number] | null; request_id: string }> {
   const response = await fetch(
-    `${appConfig.apiBaseUrl}/tenanted/notification-contacts/${contactId}/sites/${siteId}`,
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/notification-contacts/${contactId}/sites/${siteId}`, tenantHost),
     {
       method: 'DELETE',
       headers: {
@@ -1020,7 +1020,7 @@ export async function previewNotificationRecipients(
   }
 
   const response = await fetch(
-    `${appConfig.apiBaseUrl}/tenanted/tenant/settings/notifications/preview?${params.toString()}`,
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/tenant/settings/notifications/preview?${params.toString()}`, tenantHost),
     {
       headers: {
         'x-forwarded-host': tenantHost,
