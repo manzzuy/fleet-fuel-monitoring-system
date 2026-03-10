@@ -176,6 +176,46 @@ export function TenantTanksPage({ host, subdomain }: TenantTanksPageProps) {
             Add tank
           </button>
         </div>
+        {editingId === 'new' ? (
+          <div className="inline-create-panel" data-testid="tanks-edit-form">
+            <div className="inline-grid four master-form-grid">
+              <label className="field">
+                <span>Tank name</span>
+                <input value={form.tank_name} onChange={(event) => setForm((current) => ({ ...current, tank_name: event.target.value }))} />
+              </label>
+              <label className="field">
+                <span>Capacity (L)</span>
+                <input value={form.capacity_l} onChange={(event) => setForm((current) => ({ ...current, capacity_l: event.target.value }))} />
+              </label>
+              <label className="field">
+                <span>Reorder level (L)</span>
+                <input
+                  value={form.reorder_level_l}
+                  onChange={(event) => setForm((current) => ({ ...current, reorder_level_l: event.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span>Site</span>
+                <select value={form.site_id} onChange={(event) => setForm((current) => ({ ...current, site_id: event.target.value }))}>
+                  <option value="">Select site</option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.site_code} - {site.site_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="edit-actions">
+                <button className="button" type="button" onClick={() => void saveEdit()} disabled={saving}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+                <button className="button button-secondary" type="button" onClick={() => setEditingId(null)} disabled={saving}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
         {loading ? <p className="status">Loading tanks...</p> : null}
         {error ? <p className="status error">{error}</p> : null}
         {!loading && !error && rows.length === 0 ? <p className="status">No tanks found.</p> : null}
@@ -209,7 +249,7 @@ export function TenantTanksPage({ host, subdomain }: TenantTanksPageProps) {
                 </div>
                 {editingId === row.id ? (
                   <div className="table-row master-edit-row" data-testid="tanks-edit-form">
-                    <div className="inline-grid four">
+                    <div className="inline-grid four master-form-grid">
                       <label className="field">
                         <span>Tank name</span>
                         <input value={form.tank_name} onChange={(event) => setForm((current) => ({ ...current, tank_name: event.target.value }))} />
@@ -249,44 +289,6 @@ export function TenantTanksPage({ host, subdomain }: TenantTanksPageProps) {
                 ) : null}
               </Fragment>
             ))}
-          </div>
-        ) : null}
-        {editingId === 'new' ? (
-          <div className="inline-grid four" data-testid="tanks-edit-form">
-            <label className="field">
-              <span>Tank name</span>
-              <input value={form.tank_name} onChange={(event) => setForm((current) => ({ ...current, tank_name: event.target.value }))} />
-            </label>
-            <label className="field">
-              <span>Capacity (L)</span>
-              <input value={form.capacity_l} onChange={(event) => setForm((current) => ({ ...current, capacity_l: event.target.value }))} />
-            </label>
-            <label className="field">
-              <span>Reorder level (L)</span>
-              <input
-                value={form.reorder_level_l}
-                onChange={(event) => setForm((current) => ({ ...current, reorder_level_l: event.target.value }))}
-              />
-            </label>
-            <label className="field">
-              <span>Site</span>
-              <select value={form.site_id} onChange={(event) => setForm((current) => ({ ...current, site_id: event.target.value }))}>
-                <option value="">Select site</option>
-                {sites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {site.site_code} - {site.site_name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="edit-actions">
-              <button className="button" type="button" onClick={() => void saveEdit()} disabled={saving}>
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-              <button className="button button-secondary" type="button" onClick={() => setEditingId(null)} disabled={saving}>
-                Cancel
-              </button>
-            </div>
           </div>
         ) : null}
         {message ? <p className={message.includes('Unable') ? 'status error' : 'status'}>{message}</p> : null}

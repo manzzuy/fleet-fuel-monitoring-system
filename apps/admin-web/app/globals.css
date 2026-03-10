@@ -372,7 +372,15 @@ dd {
 .dashboard-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: 1.25fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.dashboard-grid > .card {
+  min-height: 420px;
+  height: 100%;
+  display: grid;
+  align-content: start;
 }
 
 .dashboard-table-row {
@@ -401,10 +409,19 @@ dd {
 
 .daily-check-table-row {
   grid-template-columns: 1fr 0.8fr 1fr 1.6fr 0.6fr;
+  min-height: 56px;
 }
 
 .daily-check-table-row-monitor {
   grid-template-columns: 0.8fr 0.9fr 0.8fr 1fr 1.2fr 0.6fr;
+  min-height: 56px;
+}
+
+.daily-check-table-row:not(.table-head) > span,
+.daily-check-table-row-monitor:not(.table-head) > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
 }
 
 .drivers-master-row {
@@ -447,6 +464,24 @@ dd {
   border-color: rgba(8, 133, 121, 0.25);
   margin-top: -2px;
   animation: row-expand 180ms ease both;
+}
+
+.inline-create-panel {
+  margin-top: 12px;
+  animation: row-expand 220ms ease both;
+}
+
+.master-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.master-form-grid .field,
+.master-form-grid .checkbox-field {
+  width: 100%;
+}
+
+.master-form-grid .edit-actions {
+  margin-top: 8px;
 }
 
 .severity-pill {
@@ -550,6 +585,52 @@ dd {
 
 .field.compact {
   width: 180px;
+}
+
+[data-testid='settings-monitoring-module'] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+[data-testid='settings-monitoring-module'] > h2,
+[data-testid='settings-monitoring-module'] > p.status,
+[data-testid='settings-monitoring-module'] > p.status.error {
+  grid-column: 1 / -1;
+}
+
+[data-testid='settings-notifications-module'] {
+  order: 1;
+  grid-column: 1 / -1;
+}
+
+[data-testid='settings-notification-preview-module'] {
+  order: 2;
+  grid-column: 1 / -1;
+}
+
+[data-testid='settings-notification-contacts-module'] {
+  order: 3;
+  grid-column: 1 / -1;
+}
+
+[data-testid='settings-monitoring-module'] > dl {
+  order: 4;
+  grid-column: 1 / 2;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+[data-testid='settings-system-status-module'] {
+  order: 5;
+  grid-column: 2 / 3;
+  margin: 0;
+  border-radius: 18px;
+  padding: 18px;
+  min-height: 0;
 }
 
 .checklist-item {
@@ -688,11 +769,24 @@ dd {
     grid-template-columns: 1fr;
   }
 
+  .master-form-grid {
+    grid-template-columns: 1fr;
+  }
+
   .tenant-layout {
     grid-template-columns: 1fr;
   }
 
   .tenant-sidebar {
     position: static;
+  }
+
+  [data-testid='settings-monitoring-module'] {
+    grid-template-columns: 1fr;
+  }
+
+  [data-testid='settings-monitoring-module'] > dl,
+  [data-testid='settings-system-status-module'] {
+    grid-column: 1 / -1;
   }
 }

@@ -49,6 +49,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
   const [sites, setSites] = useState<Array<{ id: string; site_code: string; site_name: string }>>([]);
   const [drivers, setDrivers] = useState<Array<{ id: string; full_name: string }>>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [complianceEditingVehicleId, setComplianceEditingVehicleId] = useState<string | null>(null);
   const [vehicleForm, setVehicleForm] = useState({
     fleet_no: '',
     plate_no: '',
@@ -264,6 +265,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
       setExpiryDate('');
       setNotes('');
       setComplianceMessage('Vehicle compliance record saved.');
+      setComplianceEditingVehicleId(null);
     } catch (caught) {
       const message = caught instanceof ApiClientError ? caught.message : 'Unable to save compliance record.';
       setComplianceMessage(message);
@@ -289,6 +291,61 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
             Add vehicle
           </button>
         </div>
+        {editingId === 'new' ? (
+          <div className="inline-create-panel" data-testid="vehicles-edit-form">
+            <div className="inline-grid four master-form-grid">
+              <label className="field">
+                <span>Fleet no</span>
+                <input value={vehicleForm.fleet_no} onChange={(event) => setVehicleForm((current) => ({ ...current, fleet_no: event.target.value }))} />
+              </label>
+              <label className="field">
+                <span>Plate no</span>
+                <input value={vehicleForm.plate_no} onChange={(event) => setVehicleForm((current) => ({ ...current, plate_no: event.target.value }))} />
+              </label>
+              <label className="field">
+                <span>Assigned site</span>
+                <select value={vehicleForm.site_id} onChange={(event) => setVehicleForm((current) => ({ ...current, site_id: event.target.value }))}>
+                  <option value="">Unassigned</option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.site_code} - {site.site_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Assigned driver</span>
+                <select
+                  value={vehicleForm.assigned_driver_user_id}
+                  onChange={(event) => setVehicleForm((current) => ({ ...current, assigned_driver_user_id: event.target.value }))}
+                >
+                  <option value="">Unassigned</option>
+                  {drivers.map((driver) => (
+                    <option key={driver.id} value={driver.id}>
+                      {driver.full_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={vehicleForm.is_active}
+                  onChange={(event) => setVehicleForm((current) => ({ ...current, is_active: event.target.checked }))}
+                />
+                <span>Active</span>
+              </label>
+              <div className="edit-actions">
+                <button className="button" type="button" onClick={() => void saveVehicle()} disabled={vehicleSaving}>
+                  {vehicleSaving ? 'Saving…' : 'Save'}
+                </button>
+                <button className="button button-secondary" type="button" onClick={() => setEditingId(null)} disabled={vehicleSaving}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
         {loading ? <p className="status">Loading vehicles...</p> : null}
         {error ? <p className="status error">{error}</p> : null}
         {!loading && !error && rows.length === 0 ? <p className="status">No vehicles found.</p> : null}
@@ -325,14 +382,21 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
                     </button>
                   </span>
                   <span>
-                    <button className="button button-secondary" type="button" onClick={() => setSelectedVehicleId(row.id)}>
+                    <button
+                      className="button button-secondary"
+                      type="button"
+                      onClick={() => {
+                        setSelectedVehicleId(row.id);
+                        setComplianceEditingVehicleId(row.id);
+                      }}
+                    >
                       Add inspection/compliance
                     </button>
                   </span>
                 </div>
                 {editingId === row.id ? (
                   <div className="table-row master-edit-row" data-testid="vehicles-edit-form">
-                    <div className="inline-grid four">
+                    <div className="inline-grid four master-form-grid">
                       <label className="field">
                         <span>Fleet no</span>
                         <input value={vehicleForm.fleet_no} onChange={(event) => setVehicleForm((current) => ({ ...current, fleet_no: event.target.value }))} />
@@ -385,67 +449,60 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
                     </div>
                   </div>
                 ) : null}
+                {complianceEditingVehicleId === row.id ? (
+                  <div className="table-row master-edit-row" data-testid="vehicles-inline-compliance-form">
+                    <div className="inline-grid four master-form-grid">
+                      <label className="field">
+                        <span>Compliance type</span>
+                        <select value={selectedTypeId} onChange={(event) => setSelectedTypeId(event.target.value)}>
+                          <option value="">Select type</option>
+                          {complianceTypes.map((type) => (
+                            <option key={type.id} value={type.id}>
+                              {type.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span>Reference no</span>
+                        <input value={referenceNumber} onChange={(event) => setReferenceNumber(event.target.value)} />
+                      </label>
+                      <label className="field">
+                        <span>Issued at</span>
+                        <input type="date" value={issuedAt} onChange={(event) => setIssuedAt(event.target.value)} />
+                      </label>
+                      <label className="field">
+                        <span>Expiry date</span>
+                        <input type="date" value={expiryDate} onChange={(event) => setExpiryDate(event.target.value)} />
+                      </label>
+                      <label className="field">
+                        <span>Notes</span>
+                        <input value={notes} onChange={(event) => setNotes(event.target.value)} />
+                      </label>
+                      <div className="edit-actions">
+                        <button className="button" type="button" onClick={() => void handleCreateRecord()} disabled={!selectedTypeId}>
+                          Add inspection/compliance
+                        </button>
+                        <button
+                          className="button button-secondary"
+                          type="button"
+                          onClick={() => setComplianceEditingVehicleId(null)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </Fragment>
             ))}
-          </div>
-        ) : null}
-        {editingId === 'new' ? (
-          <div className="inline-grid four" data-testid="vehicles-edit-form">
-            <label className="field">
-              <span>Fleet no</span>
-              <input value={vehicleForm.fleet_no} onChange={(event) => setVehicleForm((current) => ({ ...current, fleet_no: event.target.value }))} />
-            </label>
-            <label className="field">
-              <span>Plate no</span>
-              <input value={vehicleForm.plate_no} onChange={(event) => setVehicleForm((current) => ({ ...current, plate_no: event.target.value }))} />
-            </label>
-            <label className="field">
-              <span>Assigned site</span>
-              <select value={vehicleForm.site_id} onChange={(event) => setVehicleForm((current) => ({ ...current, site_id: event.target.value }))}>
-                <option value="">Unassigned</option>
-                {sites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {site.site_code} - {site.site_name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>Assigned driver</span>
-              <select
-                value={vehicleForm.assigned_driver_user_id}
-                onChange={(event) => setVehicleForm((current) => ({ ...current, assigned_driver_user_id: event.target.value }))}
-              >
-                <option value="">Unassigned</option>
-                {drivers.map((driver) => (
-                  <option key={driver.id} value={driver.id}>
-                    {driver.full_name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={vehicleForm.is_active}
-                onChange={(event) => setVehicleForm((current) => ({ ...current, is_active: event.target.checked }))}
-              />
-              <span>Active</span>
-            </label>
-            <div className="edit-actions">
-              <button className="button" type="button" onClick={() => void saveVehicle()} disabled={vehicleSaving}>
-                {vehicleSaving ? 'Saving…' : 'Save'}
-              </button>
-              <button className="button button-secondary" type="button" onClick={() => setEditingId(null)} disabled={vehicleSaving}>
-                Cancel
-              </button>
-            </div>
           </div>
         ) : null}
         {vehicleMessage ? <p className={vehicleMessage.includes('Unable') ? 'status error' : 'status'}>{vehicleMessage}</p> : null}
       </section>
       <section className="card" data-testid="vehicles-compliance-module">
         <h2>Vehicle compliance records</h2>
+        <p className="status">Use “Add inspection/compliance” on a vehicle row to add records inline.</p>
         <div className="inline-grid four">
           <label className="field">
             <span>Vehicle</span>
@@ -458,41 +515,6 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
               ))}
             </select>
           </label>
-          <label className="field">
-            <span>Compliance type</span>
-            <select value={selectedTypeId} onChange={(event) => setSelectedTypeId(event.target.value)}>
-              <option value="">Select type</option>
-              {complianceTypes.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Reference no</span>
-            <input value={referenceNumber} onChange={(event) => setReferenceNumber(event.target.value)} />
-          </label>
-          <label className="field">
-            <span>Issued at</span>
-            <input type="date" value={issuedAt} onChange={(event) => setIssuedAt(event.target.value)} />
-          </label>
-        </div>
-        <div className="inline-grid three">
-          <label className="field">
-            <span>Expiry date</span>
-            <input type="date" value={expiryDate} onChange={(event) => setExpiryDate(event.target.value)} />
-          </label>
-          <label className="field">
-            <span>Notes</span>
-            <input value={notes} onChange={(event) => setNotes(event.target.value)} />
-          </label>
-          <div className="field">
-            <span>&nbsp;</span>
-            <button className="button" type="button" onClick={handleCreateRecord}>
-              Add vehicle compliance
-            </button>
-          </div>
         </div>
         <div className="inline-grid three">
           <label className="field">

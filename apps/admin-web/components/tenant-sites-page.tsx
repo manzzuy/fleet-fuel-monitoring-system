@@ -173,6 +173,40 @@ export function TenantSitesPage({ host, subdomain }: TenantSitesPageProps) {
             Add site
           </button>
         </div>
+        {editingId === 'new' ? (
+          <div className="inline-create-panel" data-testid="sites-edit-form">
+            <div className="inline-grid four master-form-grid">
+              <label className="field">
+                <span>Site code</span>
+                <input value={form.site_code} onChange={(event) => setForm((current) => ({ ...current, site_code: event.target.value }))} />
+              </label>
+              <label className="field">
+                <span>Site name</span>
+                <input value={form.site_name} onChange={(event) => setForm((current) => ({ ...current, site_name: event.target.value }))} />
+              </label>
+              <label className="field">
+                <span>Location</span>
+                <input value={form.location} onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))} />
+              </label>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={form.is_active}
+                  onChange={(event) => setForm((current) => ({ ...current, is_active: event.target.checked }))}
+                />
+                <span>Active</span>
+              </label>
+              <div className="edit-actions">
+                <button className="button" type="button" onClick={() => void saveEdit()} disabled={saving}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+                <button className="button button-secondary" type="button" onClick={cancelEdit} disabled={saving}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
         {loading ? <p className="status">Loading sites...</p> : null}
         {error ? <p className="status error">{error}</p> : null}
         {!loading && !error && rows.length === 0 ? <p className="status">No sites found.</p> : null}
@@ -210,7 +244,7 @@ export function TenantSitesPage({ host, subdomain }: TenantSitesPageProps) {
                 </div>
                 {editingId === row.id ? (
                   <div className="table-row master-edit-row" data-testid="sites-edit-form">
-                    <div className="inline-grid four">
+                    <div className="inline-grid four master-form-grid">
                       <label className="field">
                         <span>Site code</span>
                         <input value={form.site_code} onChange={(event) => setForm((current) => ({ ...current, site_code: event.target.value }))} />
@@ -244,38 +278,6 @@ export function TenantSitesPage({ host, subdomain }: TenantSitesPageProps) {
                 ) : null}
               </Fragment>
             ))}
-          </div>
-        ) : null}
-        {editingId === 'new' ? (
-          <div className="inline-grid four" data-testid="sites-edit-form">
-            <label className="field">
-              <span>Site code</span>
-              <input value={form.site_code} onChange={(event) => setForm((current) => ({ ...current, site_code: event.target.value }))} />
-            </label>
-            <label className="field">
-              <span>Site name</span>
-              <input value={form.site_name} onChange={(event) => setForm((current) => ({ ...current, site_name: event.target.value }))} />
-            </label>
-            <label className="field">
-              <span>Location</span>
-              <input value={form.location} onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))} />
-            </label>
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={form.is_active}
-                onChange={(event) => setForm((current) => ({ ...current, is_active: event.target.checked }))}
-              />
-              <span>Active</span>
-            </label>
-            <div className="edit-actions">
-              <button className="button" type="button" onClick={() => void saveEdit()} disabled={saving}>
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-              <button className="button button-secondary" type="button" onClick={cancelEdit} disabled={saving}>
-                Cancel
-              </button>
-            </div>
           </div>
         ) : null}
         {message ? <p className={message.includes('Unable') ? 'status error' : 'status'}>{message}</p> : null}

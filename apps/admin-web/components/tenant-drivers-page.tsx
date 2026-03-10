@@ -299,6 +299,68 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
             Add driver
           </button>
         </div>
+        {editingId === 'new' ? (
+          <div className="inline-create-panel" data-testid="drivers-edit-form">
+            <div className="inline-grid four master-form-grid">
+              <label className="field">
+                <span>Full name</span>
+                <input value={driverForm.full_name} onChange={(event) => setDriverForm((current) => ({ ...current, full_name: event.target.value }))} />
+              </label>
+              <label className="field">
+                <span>Employee no</span>
+                <input
+                  value={driverForm.employee_no}
+                  onChange={(event) => setDriverForm((current) => ({ ...current, employee_no: event.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span>Username</span>
+                <input value={driverForm.username} onChange={(event) => setDriverForm((current) => ({ ...current, username: event.target.value }))} />
+              </label>
+              <label className="field">
+                <span>Assigned site</span>
+                <select value={driverForm.site_id} onChange={(event) => setDriverForm((current) => ({ ...current, site_id: event.target.value }))}>
+                  <option value="">Unassigned</option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.site_code} - {site.site_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Assigned vehicle</span>
+                <select
+                  value={driverForm.assigned_vehicle_id}
+                  onChange={(event) => setDriverForm((current) => ({ ...current, assigned_vehicle_id: event.target.value }))}
+                >
+                  <option value="">Unassigned</option>
+                  {vehicles.map((vehicle) => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {vehicle.fleet_no} {vehicle.plate_no ? `(${vehicle.plate_no})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={driverForm.is_active}
+                  onChange={(event) => setDriverForm((current) => ({ ...current, is_active: event.target.checked }))}
+                />
+                <span>Active</span>
+              </label>
+              <div className="edit-actions">
+                <button className="button" type="button" onClick={() => void saveDriver()} disabled={driverSaving}>
+                  {driverSaving ? 'Saving…' : 'Save'}
+                </button>
+                <button className="button button-secondary" type="button" onClick={() => setEditingId(null)} disabled={driverSaving}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
         {loading ? <p className="status">Loading drivers...</p> : null}
         {error ? <p className="status error">{error}</p> : null}
         {!loading && !error && rows.length === 0 ? <p className="status">No drivers found.</p> : null}
@@ -344,7 +406,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                 </div>
                 {editingId === row.id ? (
                   <div className="table-row master-edit-row" data-testid="drivers-edit-form">
-                    <div className="inline-grid four">
+                    <div className="inline-grid four master-form-grid">
                       <label className="field">
                         <span>Full name</span>
                         <input value={driverForm.full_name} onChange={(event) => setDriverForm((current) => ({ ...current, full_name: event.target.value }))} />
@@ -406,66 +468,6 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                 ) : null}
               </Fragment>
             ))}
-          </div>
-        ) : null}
-        {editingId === 'new' ? (
-          <div className="inline-grid four" data-testid="drivers-edit-form">
-            <label className="field">
-              <span>Full name</span>
-              <input value={driverForm.full_name} onChange={(event) => setDriverForm((current) => ({ ...current, full_name: event.target.value }))} />
-            </label>
-            <label className="field">
-              <span>Employee no</span>
-              <input
-                value={driverForm.employee_no}
-                onChange={(event) => setDriverForm((current) => ({ ...current, employee_no: event.target.value }))}
-              />
-            </label>
-            <label className="field">
-              <span>Username</span>
-              <input value={driverForm.username} onChange={(event) => setDriverForm((current) => ({ ...current, username: event.target.value }))} />
-            </label>
-            <label className="field">
-              <span>Assigned site</span>
-              <select value={driverForm.site_id} onChange={(event) => setDriverForm((current) => ({ ...current, site_id: event.target.value }))}>
-                <option value="">Unassigned</option>
-                {sites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {site.site_code} - {site.site_name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>Assigned vehicle</span>
-              <select
-                value={driverForm.assigned_vehicle_id}
-                onChange={(event) => setDriverForm((current) => ({ ...current, assigned_vehicle_id: event.target.value }))}
-              >
-                <option value="">Unassigned</option>
-                {vehicles.map((vehicle) => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.fleet_no} {vehicle.plate_no ? `(${vehicle.plate_no})` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={driverForm.is_active}
-                onChange={(event) => setDriverForm((current) => ({ ...current, is_active: event.target.checked }))}
-              />
-              <span>Active</span>
-            </label>
-            <div className="edit-actions">
-              <button className="button" type="button" onClick={() => void saveDriver()} disabled={driverSaving}>
-                {driverSaving ? 'Saving…' : 'Save'}
-              </button>
-              <button className="button button-secondary" type="button" onClick={() => setEditingId(null)} disabled={driverSaving}>
-                Cancel
-              </button>
-            </div>
           </div>
         ) : null}
         {driverMessage ? <p className={driverMessage.includes('Unable') ? 'status error' : 'status'}>{driverMessage}</p> : null}
