@@ -414,14 +414,23 @@ dd {
 
 .daily-check-table-row-monitor {
   grid-template-columns: 0.8fr 0.9fr 0.8fr 1fr 1.2fr 0.6fr;
-  min-height: 56px;
+  min-height: 62px;
+  align-items: stretch;
 }
 
 .daily-check-table-row:not(.table-head) > span,
 .daily-check-table-row-monitor:not(.table-head) > span {
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
+  min-height: 34px;
+  line-height: 1.35;
+}
+
+.daily-check-cell {
+  white-space: normal;
+  word-break: break-word;
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 .drivers-master-row {

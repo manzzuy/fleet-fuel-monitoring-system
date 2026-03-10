@@ -28,6 +28,25 @@ function draftStorageKey(subdomain: string) {
   return `fleetfuel.driver.daily-check.draft.${subdomain}`;
 }
 
+function itemIcon(itemName: string) {
+  const value = itemName.toLowerCase();
+  if (value.includes('light') || value.includes('indicator')) return '💡';
+  if (value.includes('tire') || value.includes('tyre')) return '🛞';
+  if (value.includes('brake')) return '🛑';
+  if (value.includes('fire extinguisher')) return '🧯';
+  if (value.includes('mirror') || value.includes('windshield') || value.includes('windscreen')) return '🪟';
+  if (value.includes('horn')) return '📯';
+  if (value.includes('seat') || value.includes('belt')) return '🪑';
+  if (value.includes('oil') || value.includes('fluid')) return '🛢️';
+  return '🔧';
+}
+
+function statusLabel(status: CheckStatus) {
+  if (status === 'OK') return '🟢 Good';
+  if (status === 'NOT_OK') return '🔴 Issue';
+  return '⚪ N/A';
+}
+
 export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
   const router = useRouter();
   const [master, setMaster] = useState<ChecklistMasterResponse | null>(null);
@@ -40,6 +59,8 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
   const [restoredDraft, setRestoredDraft] = useState(false);
   const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [notesVisible, setNotesVisible] = useState<Record<string, boolean>>({});
 
   async function loadChecklist(activeHost: string, activeSubdomain: string) {
     const token = window.localStorage.getItem(driverTokenKey(activeSubdomain));
@@ -58,6 +79,12 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
       ]);
       setMaster(result);
       setVehicles(driverVehicles.items);
+      setExpandedSections(() => {
+        const isSmallScreen = window.matchMedia('(max-width: 560px)').matches;
+        return Object.fromEntries(
+          result.sections.map((section, index) => [section.section_code, isSmallScreen ? index === 0 : true]),
+        );
+      });
       const firstVehicle = driverVehicles.items[0];
       if (firstVehicle) {
         setSelectedVehicleId((current) => current || firstVehicle.id);
@@ -67,6 +94,11 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
         try {
           const parsed = JSON.parse(draft) as Record<string, CheckItemValue>;
           setItems(parsed);
+          setNotesVisible(
+            Object.fromEntries(
+              Object.entries(parsed).map(([itemCode, value]) => [itemCode, Boolean(value.notes || value.status === 'NOT_OK')]),
+            ),
+          );
           setRestoredDraft(true);
         } catch {
           window.localStorage.removeItem(draftStorageKey(activeSubdomain));
@@ -114,6 +146,9 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
       }
       return next;
     });
+    if (status === 'NOT_OK') {
+      setNotesVisible((current) => ({ ...current, [itemCode]: true }));
+    }
   }
 
   function setItemNotes(itemCode: string, notes: string) {
@@ -144,6 +179,14 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
         .map((item) => item.item_code) ?? [],
     [master],
   );
+  const requiredCompleted = useMemo(
+    () => requiredItemCodes.filter((itemCode) => Boolean(items[itemCode]?.status)).length,
+    [items, requiredItemCodes],
+  );
+
+  function toggleSection(sectionCode: string) {
+    setExpandedSections((current) => ({ ...current, [sectionCode]: !current[sectionCode] }));
+  }
 
   async function onSubmit() {
     if (!host || !subdomain) {
@@ -252,6 +295,33 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
         {!loading && !error && master ? (
           <div className="stack" data-testid="driver-checklist-form">
             {submitError ? <p className="status error">{submitError}</p> : null}
+            <div className="checklist-progress">
+              <strong>{requiredCompleted}</strong> / {requiredItemCodes.length} required completed
+            </div>
+            {master.sections.length > 1 ? (
+              <div className="segmented segmented-two">
+                <button
+                  className="button ghost compact"
+                  onClick={() =>
+                    setExpandedSections(Object.fromEntries(master.sections.map((section) => [section.section_code, true])))
+                  }
+                  type="button"
+                >
+                  Expand all
+                </button>
+                <button
+                  className="button ghost compact"
+                  onClick={() =>
+                    setExpandedSections(
+                      Object.fromEntries(master.sections.map((section, index) => [section.section_code, index === 0])),
+                    )
+                  }
+                  type="button"
+                >
+                  Compact view
+                </button>
+              </div>
+            ) : null}
             <label className="field">
               <span>Vehicle</span>
               <select
@@ -269,35 +339,61 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
             </label>
             {master.sections.map((section) => (
               <div className="panel" key={section.section_code}>
-                <h3>{section.section_name}</h3>
-                {section.items.map((item) => (
+                <button
+                  aria-expanded={expandedSections[section.section_code] ? 'true' : 'false'}
+                  className="section-toggle"
+                  onClick={() => toggleSection(section.section_code)}
+                  type="button"
+                >
+                  <h3>{section.section_name}</h3>
+                  <span>{expandedSections[section.section_code] ? '−' : '+'}</span>
+                </button>
+                {expandedSections[section.section_code]
+                  ? section.items.map((item) => (
                   <div className="stack" data-testid={`driver-checklist-item-${item.item_code}`} key={item.item_code}>
-                    <p>
-                      {item.item_name} {item.required ? <strong>(Required)</strong> : <span>(Optional)</span>}
-                    </p>
-                    <div className="segmented">
+                    <div className="checklist-item-label">
+                      <span className="checklist-item-icon" aria-hidden="true">
+                        {itemIcon(item.item_name)}
+                      </span>
+                      <p>
+                        {item.item_name} {item.required ? <strong>(Required)</strong> : <span>(Optional)</span>}
+                      </p>
+                    </div>
+                    <div className="segmented segmented-toggle">
                       {(['OK', 'NOT_OK', 'NA'] as const).map((status) => (
                         <button
+                          aria-label={status}
                           key={status}
-                          className={items[item.item_code]?.status === status ? 'button' : 'button ghost'}
+                          className={`toggle-option ${items[item.item_code]?.status === status ? 'active' : ''}`}
                           onClick={() => setItemStatus(item.item_code, status)}
                           type="button"
                         >
-                          {status === 'OK' ? '🟢 Good' : status === 'NOT_OK' ? '🔴 Issue' : '⚪ N/A'}
+                          {statusLabel(status)}
                         </button>
                       ))}
                     </div>
-                    <label className="field">
-                      <span>Notes (optional)</span>
-                      <input
-                        onChange={(event) => setItemNotes(item.item_code, event.target.value)}
-                        placeholder="Add notes if needed"
-                        type="text"
-                        value={items[item.item_code]?.notes ?? ''}
-                      />
-                    </label>
+                    {notesVisible[item.item_code] || items[item.item_code]?.notes ? (
+                      <label className="field">
+                        <span>Notes (optional)</span>
+                        <input
+                          onChange={(event) => setItemNotes(item.item_code, event.target.value)}
+                          placeholder="Add notes if needed"
+                          type="text"
+                          value={items[item.item_code]?.notes ?? ''}
+                        />
+                      </label>
+                    ) : (
+                      <button
+                        className="button ghost compact"
+                        onClick={() => setNotesVisible((current) => ({ ...current, [item.item_code]: true }))}
+                        type="button"
+                      >
+                        Add note
+                      </button>
+                    )}
                   </div>
-                ))}
+                  ))
+                  : null}
               </div>
             ))}
             <button className="button" data-testid="driver-submit-daily-checklist" disabled={submitting} onClick={onSubmit} type="button">

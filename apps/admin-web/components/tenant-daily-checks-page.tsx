@@ -18,6 +18,20 @@ interface TenantDailyChecksPageProps {
   subdomain: string | null;
 }
 
+function checkStatusLabel(status: 'DRAFT' | 'SUBMITTED') {
+  return status === 'SUBMITTED' ? '🟢 Submitted' : '🟡 Pending';
+}
+
+function issueLabelText(status: 'DRAFT' | 'SUBMITTED', notOkCount: number) {
+  if (notOkCount > 0) {
+    return `🔴 ${notOkCount} issues`;
+  }
+  if (status === 'DRAFT') {
+    return '🟠 Missing submission';
+  }
+  return '🟢 Clear';
+}
+
 export function TenantDailyChecksPage({ host, subdomain }: TenantDailyChecksPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -311,31 +325,28 @@ export function TenantDailyChecksPage({ host, subdomain }: TenantDailyChecksPage
               <span>Action</span>
             </div>
             {checks.map((check) => {
-              const issueLabel =
-                check.stats.not_ok_count > 0
-                  ? `${check.stats.not_ok_count} issues`
-                  : check.status === 'DRAFT'
-                    ? 'Missing submission'
-                    : 'Clear';
+              const issueLabel = issueLabelText(check.status, check.stats.not_ok_count);
               return (
                 <div
                   className={`table-row daily-check-table-row-monitor${relatedRecordId === check.id ? ' row-highlight' : ''}`}
                   key={check.id}
                 >
-                  <span>{check.check_date}</span>
-                  <span>{check.vehicle.fleet_no}</span>
-                  <span>{check.status}</span>
-                  <span>{issueLabel}</span>
-                  <span>
+                  <span className="daily-check-cell">{check.check_date}</span>
+                  <span className="daily-check-cell">{check.vehicle.fleet_no}</span>
+                  <span className="daily-check-cell">
+                    <span className="status-pill">{checkStatusLabel(check.status)}</span>
+                  </span>
+                  <span className="daily-check-cell">{issueLabel}</span>
+                  <span className="daily-check-cell">
                     {check.signals.critical_not_ok_count > 0
-                      ? `${check.signals.critical_not_ok_count} critical`
+                      ? `🚨 ${check.signals.critical_not_ok_count} critical`
                       : check.signals.vehicle_has_repeated_issues
-                        ? `Repeated (${check.signals.repeated_issue_count_7d}/7d)`
+                        ? `⚠️ Repeated (${check.signals.repeated_issue_count_7d}/7d)`
                         : check.signals.driver_draft_count_7d > 0
-                          ? `Driver draft ${check.signals.driver_draft_count_7d}/7d`
+                          ? `🟠 Driver draft ${check.signals.driver_draft_count_7d}/7d`
                           : '—'}
                   </span>
-                  <span>
+                  <span className="daily-check-cell">
                     <Link href={`/daily-checks/${check.id}`}>View</Link>
                   </span>
                 </div>
