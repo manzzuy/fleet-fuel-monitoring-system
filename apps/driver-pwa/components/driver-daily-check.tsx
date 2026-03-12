@@ -47,7 +47,6 @@ interface PaperTemplateItem {
 interface PaperRowCellSpec {
   key: string;
   group: GroupName;
-  placeholder?: boolean;
 }
 
 interface PaperRowSpec {
@@ -259,8 +258,6 @@ const PAPER_ROW_LAYOUT: PaperRowSpec[] = [
   {
     cells: [
       { group: 'Documentation & Tools', key: 'other' },
-      { group: 'Documentation & Tools', key: 'other-2', placeholder: true },
-      { group: 'Documentation & Tools', key: 'other-3', placeholder: true },
     ],
   },
 ];
@@ -513,41 +510,15 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
   const paperRows = useMemo(
     () =>
       PAPER_ROW_LAYOUT.map((row) => ({
-        cells: row.cells.map((cell) => {
-          if (cell.placeholder) {
-            return {
-              placeholder: true as const,
-              uiKey: `${cell.group}:${cell.key}`,
-              item: {
-                uiKey: `${cell.group}:${cell.key}`,
-                labelEn: 'Other',
-                labelAr: 'أخرى',
-                icon: '📌',
-                group: cell.group,
-                configured: false,
-                required: false,
-              } satisfies UiChecklistItem,
-            };
-          }
+        cells: row.cells.flatMap((cell) => {
           const lookupKey = templateUiKey(cell.group, cell.key);
           const item = uiItemByKey.get(lookupKey);
-          return {
-            placeholder: false as const,
-            uiKey: lookupKey,
-            item:
-              item ??
-              ({
-                uiKey: lookupKey,
-                labelEn: cell.key,
-                labelAr: 'عنصر',
-                icon: '📌',
-                group: cell.group,
-                configured: false,
-                required: false,
-              } satisfies UiChecklistItem),
-          };
+          if (!item?.configured) {
+            return [];
+          }
+          return [{ uiKey: lookupKey, item }];
         }),
-      })),
+      })).filter((row) => row.cells.length > 0),
     [uiItemByKey],
   );
   const configuredItems = useMemo(() => allUiItems.filter((item) => item.configured && item.apiItemCode), [allUiItems]);
@@ -691,15 +662,6 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
       return;
     }
 
-    const issueWithoutNotes = configuredItems.find((item) => {
-      const state = itemState[item.uiKey] ?? defaultItemState;
-      return state.status === 'ISSUE' && !state.notes.trim();
-    });
-    if (issueWithoutNotes) {
-      setSubmitError(`Add a short note for issue: ${issueWithoutNotes.labelEn}.`);
-      return;
-    }
-
     const payloadItems: Array<{ item_code: string; status: ApiStatus; notes?: string; photo_url?: string }> = [];
 
     setSubmitting(true);
@@ -831,6 +793,10 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
                 <span>Assigned Site</span>
                 <strong>{assignedSiteLabel}</strong>
               </div>
+              <div className="checklist-context-card">
+                <span>Date / Time</span>
+                <strong>{new Date().toLocaleString()}</strong>
+              </div>
             </div>
 
             <div className="checklist-progress">
@@ -850,29 +816,20 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
             </label>
 
             <section className="paper-form" data-testid="driver-checklist-paper-form">
-              <div className="paper-header">
-                <div className="paper-header-row">
-                  <span>NAME: {driverName}</span>
-                  <span>FLEET/REGN. NO: {assignedVehicleLabel}</span>
-                </div>
-                <div className="paper-header-row">
-                  <span>C. NO.:</span>
-                  <span>DATE: {new Date().toLocaleDateString()}</span>
-                </div>
-              </div>
-
               <div className="paper-grid">
                 {paperRows.map((row, rowIndex) => (
                   <div
-                    className={`paper-row ${row.cells.length === 5 ? 'paper-row-five' : 'paper-row-three'}`}
+                    className={`paper-row ${
+                      row.cells.length === 5 ? 'paper-row-five' : row.cells.length === 1 ? 'paper-row-one' : row.cells.length === 2 ? 'paper-row-two' : 'paper-row-three'
+                    }`}
                     key={`paper-row-${rowIndex + 1}`}
                   >
-                    {row.cells.map(({ item, uiKey, placeholder }) => {
+                    {row.cells.map(({ item, uiKey }) => {
                       const state = itemState[item.uiKey] ?? defaultItemState;
                       const isIssue = state.status === 'ISSUE';
                       return (
                         <article
-                          className={`checklist-card paper-cell${item.configured ? '' : ' disabled'}${placeholder ? ' placeholder' : ''}`}
+                          className="checklist-card paper-cell"
                           data-testid={`driver-checklist-item-${item.uiKey}`}
                           key={uiKey}
                           ref={(element) => {
@@ -896,7 +853,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
                               aria-label="PASS"
                               className={`paper-check pass ${state.status === 'PASS' ? 'active pass' : ''}`}
                               data-testid={`driver-checklist-pass-${item.uiKey}`}
-                              disabled={!item.configured || placeholder}
+                              disabled={!item.configured}
                               onClick={() => setStatus(item.uiKey, 'PASS')}
                               type="button"
                             >
@@ -906,30 +863,18 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
                               aria-label="ISSUE"
                               className={`paper-check issue ${isIssue ? 'active issue' : ''}`}
                               data-testid={`driver-checklist-issue-${item.uiKey}`}
-                              disabled={!item.configured || placeholder}
+                              disabled={!item.configured}
                               onClick={() => setStatus(item.uiKey, 'ISSUE')}
                               type="button"
                             >
                               <span aria-hidden="true">✕</span>
                             </button>
                           </div>
-
-                          {!item.configured ? <p className="status">Not configured in tenant checklist.</p> : null}
                         </article>
                       );
                     })}
                   </div>
                 ))}
-                <div className="paper-signatures">
-                  <div>Sig. of Journey Manager</div>
-                  <div>Sig. of Driver</div>
-                </div>
-              </div>
-
-              <div className="paper-legend">
-                <span>Tick where applicable:</span>
-                <span>□ Yes / OK</span>
-                <span>○ Not OK</span>
               </div>
             </section>
 
