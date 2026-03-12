@@ -655,6 +655,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
     () => getPreviousOdometerKm(vehicles, selectedVehicleId),
     [selectedVehicleId, vehicles],
   );
+  const hasPreviousOdometer = previousOdometerKm !== null;
   const odometerValidationMessage = useMemo(() => {
     if (!odometerKm.trim()) {
       return null;
@@ -935,19 +936,26 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
               </label>
               <label className="field">
                 <span>Odometer (km)</span>
-                <input
-                  data-testid="driver-checklist-odometer"
-                  inputMode="numeric"
-                  min="0"
-                  onChange={(event) => setOdometerKm(event.target.value)}
-                  ref={odometerInputRef}
-                  required
-                  type="number"
-                  value={odometerKm}
-                />
+              <input
+                data-testid="driver-checklist-odometer"
+                inputMode="numeric"
+                min="0"
+                onChange={(event) => setOdometerKm(event.target.value)}
+                placeholder={hasPreviousOdometer ? undefined : 'Enter current reading'}
+                ref={odometerInputRef}
+                required
+                type="number"
+                value={odometerKm}
+              />
+              {hasPreviousOdometer ? (
                 <small className="field-hint" data-testid="driver-checklist-previous-odometer">
                   {formatPreviousOdometer(previousOdometerKm)}
                 </small>
+              ) : (
+                <small className="field-hint" data-testid="driver-checklist-first-reading-hint">
+                  First reading for this vehicle
+                </small>
+              )}
                 {odometerValidationMessage ? (
                   <small className="status error" data-testid="driver-checklist-odometer-warning">
                     {odometerValidationMessage}

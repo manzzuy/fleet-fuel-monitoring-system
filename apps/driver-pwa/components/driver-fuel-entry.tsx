@@ -145,6 +145,7 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
     () => getPreviousOdometerKm(vehicles, draft.vehicleId),
     [draft.vehicleId, vehicles],
   );
+  const hasPreviousOdometer = previousOdometerKm !== null;
   const odometerValidationMessage = useMemo(() => {
     if (draft.odometerFallbackUsed) {
       return null;
@@ -309,14 +310,21 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
                 inputMode="numeric"
                 min="0"
                 onChange={(event) => updateDraft({ odometerKm: event.target.value })}
+                placeholder={hasPreviousOdometer ? undefined : 'Enter current reading'}
                 ref={odometerInputRef}
                 required={!draft.odometerFallbackUsed}
                 type="number"
                 value={draft.odometerKm}
               />
-              <small className="field-hint" data-testid="driver-fuel-previous-odometer">
-                {formatPreviousOdometer(previousOdometerKm)}
-              </small>
+              {hasPreviousOdometer ? (
+                <small className="field-hint" data-testid="driver-fuel-previous-odometer">
+                  {formatPreviousOdometer(previousOdometerKm)}
+                </small>
+              ) : (
+                <small className="field-hint" data-testid="driver-fuel-first-reading-hint">
+                  First reading for this vehicle
+                </small>
+              )}
               {odometerValidationMessage ? (
                 <small className="status error" data-testid="driver-fuel-odometer-warning">
                   {odometerValidationMessage}

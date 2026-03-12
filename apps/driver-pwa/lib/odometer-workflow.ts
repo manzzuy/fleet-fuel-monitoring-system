@@ -14,10 +14,7 @@ export function getPreviousOdometerKm(
   return vehicle?.previous_odometer_km ?? null;
 }
 
-export function formatPreviousOdometer(previousOdometerKm: number | null): string {
-  if (previousOdometerKm === null) {
-    return 'Previous: n/a';
-  }
+export function formatPreviousOdometer(previousOdometerKm: number): string {
   return `Previous: ${previousOdometerKm.toLocaleString()} km`;
 }
 
