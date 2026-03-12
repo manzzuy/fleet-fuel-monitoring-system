@@ -36,6 +36,13 @@ async function firstInteractiveChecklistCard(page: Page) {
   throw new Error('No interactive checklist item found.');
 }
 
+async function fillChecklistOdometer(page: Page) {
+  const previousText = (await page.getByTestId('driver-checklist-previous-odometer').textContent()) ?? '';
+  const previousMatch = previousText.match(/(\d[\d,]*)\s*km/i);
+  const baseline = previousMatch ? Number(previousMatch[1].replace(/,/g, '')) : 0;
+  await page.getByTestId('driver-checklist-odometer').fill(String(Math.max(1, baseline + 1)));
+}
+
 test('driver checklist issue interaction shows and hides issue-only fields', async ({ page }) => {
   await loginAndOpenChecklist(page);
 
@@ -91,6 +98,7 @@ test('driver checklist allows ISSUE without notes or photo and still submits', a
   await page.getByTestId('driver-checklist-pass-Mechanical & Exterior:indicators').click();
   await page.getByTestId('driver-checklist-pass-Mechanical & Exterior:tyres').click();
   await page.getByTestId('driver-checklist-pass-Safety & Emergency:brakes').click();
+  await fillChecklistOdometer(page);
 
   await expect(page.getByTestId('driver-submit-daily-checklist')).toBeEnabled();
   await page.getByTestId('driver-submit-daily-checklist').click();
@@ -109,6 +117,8 @@ test('driver checklist paper ux keeps progress and mobile-safe layout', async ({
 
   await expect(page.getByTestId('driver-checklist-progress-header')).toBeVisible();
   await expect(page.getByTestId('driver-checklist-sticky-submit')).toBeVisible();
+  await expect(page.getByTestId('driver-checklist-vehicle-odometer-row')).toBeVisible();
+  await expect(page.getByTestId('driver-checklist-previous-odometer')).toContainText('Previous:');
 
   const items = page.locator('[data-testid^="driver-checklist-item-"]');
   const beforeCount = await items.count();
@@ -144,6 +154,7 @@ test('driver can complete and submit daily checklist from driver pwa', async ({ 
       }
     }
   }
+  await fillChecklistOdometer(page);
 
   await page.getByTestId('driver-submit-daily-checklist').click();
   await expect(page.getByTestId('driver-checklist-submit-success')).toBeVisible();

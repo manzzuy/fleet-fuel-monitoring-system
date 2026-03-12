@@ -249,6 +249,11 @@ ul {
   color: var(--ink);
 }
 
+.field-hint {
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .field input,
 .field select,
 .field textarea,
@@ -680,6 +685,12 @@ ul {
   font-size: 14px;
 }
 
+.vehicle-odometer-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
 @keyframes issue-expand {
   from {
     opacity: 0;
@@ -774,6 +785,11 @@ ul {
 
   .checklist-compact-meta {
     grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .vehicle-odometer-row {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 6px;
   }
 }
 

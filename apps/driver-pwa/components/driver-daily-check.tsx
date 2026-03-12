@@ -14,6 +14,11 @@ import {
   submitDriverDailyCheck,
   uploadDriverReceipt,
 } from '../lib/api';
+import {
+  formatPreviousOdometer,
+  getPreviousOdometerKm,
+  validateOdometerAgainstPrevious,
+} from '../lib/odometer-workflow';
 import { driverTokenKey } from '../lib/session';
 import { DriverShell } from './driver-shell';
 
@@ -24,7 +29,12 @@ interface DriverDailyCheckProps {
 
 type ApiStatus = 'OK' | 'NOT_OK' | 'NA';
 type UiStatus = 'PASS' | 'ISSUE' | null;
-type VehicleOption = { id: string; fleet_no: string; plate_no: string | null };
+type VehicleOption = {
+  id: string;
+  fleet_no: string;
+  plate_no: string | null;
+  previous_odometer_km?: number | null;
+};
 type ChecklistItem = ChecklistMasterResponse['sections'][number]['items'][number];
 
 const GROUP_ORDER = [
@@ -299,6 +309,15 @@ interface DailyChecklistDraftV3 {
   generalComment: string;
 }
 
+interface DailyChecklistDraftV4 {
+  version: 4;
+  savedAt: string;
+  selectedVehicleId: string;
+  itemState: Record<string, UiItemState>;
+  generalComment: string;
+  odometerKm: string;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
 }
@@ -369,11 +388,42 @@ function toApiStatus(status: UiStatus): ApiStatus {
   return status === 'ISSUE' ? 'NOT_OK' : status === 'PASS' ? 'OK' : 'NA';
 }
 
-function hasDraftContent(itemState: Record<string, UiItemState>, selectedVehicleId: string, generalComment: string) {
+function parseDraftV4(value: unknown): DailyChecklistDraftV4 | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  if (
+    value.version !== 4 ||
+    !isRecord(value.itemState) ||
+    typeof value.selectedVehicleId !== 'string' ||
+    typeof value.generalComment !== 'string' ||
+    typeof value.odometerKm !== 'string'
+  ) {
+    return null;
+  }
+  return {
+    version: 4,
+    savedAt: typeof value.savedAt === 'string' ? value.savedAt : '',
+    selectedVehicleId: value.selectedVehicleId,
+    itemState: parseLegacyDraft(value.itemState),
+    generalComment: value.generalComment,
+    odometerKm: value.odometerKm,
+  };
+}
+
+function hasDraftContent(
+  itemState: Record<string, UiItemState>,
+  selectedVehicleId: string,
+  generalComment: string,
+  odometerKm: string,
+) {
   if (selectedVehicleId) {
     return true;
   }
   if (generalComment.trim()) {
+    return true;
+  }
+  if (odometerKm.trim()) {
     return true;
   }
   return Object.values(itemState).some((state) => Boolean(state.status || state.notes.trim() || state.photoName));
@@ -397,7 +447,9 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
   const [pendingPhotos, setPendingPhotos] = useState<Record<string, File>>({});
   const [activeDefectKey, setActiveDefectKey] = useState<string | null>(null);
   const [generalComment, setGeneralComment] = useState<string>('');
+  const [odometerKm, setOdometerKm] = useState<string>('');
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
+  const odometerInputRef = useRef<HTMLInputElement | null>(null);
 
   async function loadChecklist(activeHost: string, activeSubdomain: string) {
     const token = window.localStorage.getItem(driverTokenKey(activeSubdomain));
@@ -432,10 +484,22 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
       if (draft) {
         try {
           const parsed = JSON.parse(draft) as unknown;
-          const draftV3 = parseDraftV3(parsed);
+          const draftV4 = parseDraftV4(parsed);
+          const draftV3 = draftV4 ? null : parseDraftV3(parsed);
           const draftV2 = draftV3 ? null : parseDraftV2(parsed);
           let restored = false;
-          if (draftV3 && hasDraftContent(draftV3.itemState, draftV3.selectedVehicleId, draftV3.generalComment)) {
+          if (draftV4 && hasDraftContent(draftV4.itemState, draftV4.selectedVehicleId, draftV4.generalComment, draftV4.odometerKm)) {
+            setItemState(draftV4.itemState);
+            setGeneralComment(draftV4.generalComment);
+            setOdometerKm(draftV4.odometerKm);
+            if (draftV4.selectedVehicleId) {
+              setSelectedVehicleId(draftV4.selectedVehicleId);
+            } else {
+              const preferredVehicleId = dashboard.assignment.vehicle?.id ?? driverVehicles.items[0]?.id ?? '';
+              setSelectedVehicleId(preferredVehicleId);
+            }
+            restored = true;
+          } else if (draftV3 && hasDraftContent(draftV3.itemState, draftV3.selectedVehicleId, draftV3.generalComment, '')) {
             setItemState(draftV3.itemState);
             setGeneralComment(draftV3.generalComment);
             if (draftV3.selectedVehicleId) {
@@ -445,7 +509,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
               setSelectedVehicleId(preferredVehicleId);
             }
             restored = true;
-          } else if (draftV2 && hasDraftContent(draftV2.itemState, draftV2.selectedVehicleId, '')) {
+          } else if (draftV2 && hasDraftContent(draftV2.itemState, draftV2.selectedVehicleId, '', '')) {
             setItemState(draftV2.itemState);
             if (draftV2.selectedVehicleId) {
               setSelectedVehicleId(draftV2.selectedVehicleId);
@@ -459,7 +523,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
             setItemState(legacy);
             const preferredVehicleId = dashboard.assignment.vehicle?.id ?? driverVehicles.items[0]?.id ?? '';
             setSelectedVehicleId(preferredVehicleId);
-            if (hasDraftContent(legacy, preferredVehicleId, '')) {
+            if (hasDraftContent(legacy, preferredVehicleId, '', '')) {
               restored = true;
             }
           }
@@ -587,6 +651,16 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
   );
   const remainingRequiredCount = Math.max(0, requiredConfiguredItems.length - requiredCompleted);
   const progressPct = configuredItems.length > 0 ? Math.round((answeredConfiguredItems.length / configuredItems.length) * 100) : 0;
+  const previousOdometerKm = useMemo(
+    () => getPreviousOdometerKm(vehicles, selectedVehicleId),
+    [selectedVehicleId, vehicles],
+  );
+  const odometerValidationMessage = useMemo(() => {
+    if (!odometerKm.trim()) {
+      return null;
+    }
+    return validateOdometerAgainstPrevious(odometerKm, previousOdometerKm);
+  }, [odometerKm, previousOdometerKm]);
 
   function signOut() {
     if (subdomain) {
@@ -678,19 +752,20 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
     if (!subdomain || loading) {
       return;
     }
-    if (!hasDraftContent(itemState, selectedVehicleId, generalComment)) {
+    if (!hasDraftContent(itemState, selectedVehicleId, generalComment, odometerKm)) {
       window.localStorage.removeItem(draftStorageKey(subdomain));
       return;
     }
-    const payload: DailyChecklistDraftV3 = {
-      version: 3,
+    const payload: DailyChecklistDraftV4 = {
+      version: 4,
       savedAt: new Date().toISOString(),
       selectedVehicleId,
       itemState,
       generalComment,
+      odometerKm,
     };
     window.localStorage.setItem(draftStorageKey(subdomain), JSON.stringify(payload));
-  }, [generalComment, itemState, loading, selectedVehicleId, subdomain]);
+  }, [generalComment, itemState, loading, odometerKm, selectedVehicleId, subdomain]);
 
   async function onSubmit() {
     if (!host || !subdomain) {
@@ -705,6 +780,11 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
     const missingRequired = requiredConfiguredItems.filter((item) => !(itemState[item.uiKey] ?? defaultItemState).status);
     if (missingRequired.length > 0) {
       setSubmitError('Complete all required checklist items before submit.');
+      return;
+    }
+    const odometerError = validateOdometerAgainstPrevious(odometerKm, previousOdometerKm);
+    if (odometerError) {
+      setSubmitError(odometerError);
       return;
     }
 
@@ -746,6 +826,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
       }
       setItemState({});
       setGeneralComment('');
+      setOdometerKm('');
       setPendingPhotos({});
       setRestoredDraft(false);
     } catch (caught) {
@@ -833,17 +914,47 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
               <strong>{requiredCompleted}</strong> / {requiredConfiguredItems.length} required completed
             </div>
 
-            <label className="field">
-              <span>Vehicle</span>
-              <select data-testid="driver-checklist-vehicle" onChange={(event) => setSelectedVehicleId(event.target.value)} value={selectedVehicleId}>
-                {vehicles.length === 0 ? <option value="">No vehicles available</option> : null}
-                {vehicles.map((vehicle) => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.fleet_no} {vehicle.plate_no ? `(${vehicle.plate_no})` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="vehicle-odometer-row" data-testid="driver-checklist-vehicle-odometer-row">
+              <label className="field">
+                <span>Vehicle</span>
+                <select
+                  data-testid="driver-checklist-vehicle"
+                  onChange={(event) => {
+                    setSelectedVehicleId(event.target.value);
+                    requestAnimationFrame(() => odometerInputRef.current?.focus());
+                  }}
+                  value={selectedVehicleId}
+                >
+                  {vehicles.length === 0 ? <option value="">No vehicles available</option> : null}
+                  {vehicles.map((vehicle) => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {vehicle.fleet_no} {vehicle.plate_no ? `(${vehicle.plate_no})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Odometer (km)</span>
+                <input
+                  data-testid="driver-checklist-odometer"
+                  inputMode="numeric"
+                  min="0"
+                  onChange={(event) => setOdometerKm(event.target.value)}
+                  ref={odometerInputRef}
+                  required
+                  type="number"
+                  value={odometerKm}
+                />
+                <small className="field-hint" data-testid="driver-checklist-previous-odometer">
+                  {formatPreviousOdometer(previousOdometerKm)}
+                </small>
+                {odometerValidationMessage ? (
+                  <small className="status error" data-testid="driver-checklist-odometer-warning">
+                    {odometerValidationMessage}
+                  </small>
+                ) : null}
+              </label>
+            </div>
 
             <section className="paper-form" data-testid="driver-checklist-paper-form">
               <div className="paper-grid">
@@ -1005,7 +1116,13 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
                 <span>{issueCount} issues</span>
                 {remainingRequiredCount > 0 ? <span>{remainingRequiredCount} checks remaining</span> : null}
               </div>
-              <button className="button" data-testid="driver-submit-daily-checklist" disabled={submitting || remainingRequiredCount > 0} onClick={onSubmit} type="button">
+              <button
+                className="button"
+                data-testid="driver-submit-daily-checklist"
+                disabled={submitting || remainingRequiredCount > 0 || !odometerKm.trim() || Boolean(odometerValidationMessage)}
+                onClick={onSubmit}
+                type="button"
+              >
                 {submitting ? 'Submitting...' : 'Submit inspection'}
               </button>
             </div>

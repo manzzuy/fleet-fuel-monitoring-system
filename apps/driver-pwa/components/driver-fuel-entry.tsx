@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import {
@@ -10,6 +10,11 @@ import {
   getDriverVehicles,
   uploadDriverReceipt,
 } from '../lib/api';
+import {
+  formatPreviousOdometer,
+  getPreviousOdometerKm,
+  validateOdometerAgainstPrevious,
+} from '../lib/odometer-workflow';
 import { driverTokenKey } from '../lib/session';
 import { DriverShell } from './driver-shell';
 
@@ -19,7 +24,12 @@ interface DriverFuelEntryProps {
 }
 
 type FuelSourceType = 'station' | 'tank' | 'card' | 'approved_source';
-type VehicleOption = { id: string; fleet_no: string; plate_no: string | null };
+type VehicleOption = {
+  id: string;
+  fleet_no: string;
+  plate_no: string | null;
+  previous_odometer_km?: number | null;
+};
 type FuelDraft = {
   vehicleId: string | null;
   entryDate: string;
@@ -68,6 +78,7 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const odometerInputRef = useRef<HTMLInputElement | null>(null);
 
   function updateDraft(patch: Partial<FuelDraft>) {
     setDraft((current) => {
@@ -129,6 +140,21 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
       })
       .finally(() => setLoading(false));
   }, [host, router, subdomain]);
+
+  const previousOdometerKm = useMemo(
+    () => getPreviousOdometerKm(vehicles, draft.vehicleId),
+    [draft.vehicleId, vehicles],
+  );
+  const odometerValidationMessage = useMemo(() => {
+    if (draft.odometerFallbackUsed) {
+      return null;
+    }
+    if (!draft.odometerKm.trim()) {
+      return null;
+    }
+    return validateOdometerAgainstPrevious(draft.odometerKm, previousOdometerKm);
+  }, [draft.odometerFallbackUsed, draft.odometerKm, previousOdometerKm]);
+  const odometerRequiredMissing = !draft.odometerFallbackUsed && !draft.odometerKm.trim();
 
   function signOut() {
     if (subdomain) {
@@ -197,6 +223,13 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
         setError('Odometer is required unless fallback is enabled.');
         return;
       }
+      if (!draft.odometerFallbackUsed) {
+        const odometerError = validateOdometerAgainstPrevious(draft.odometerKm, previousOdometerKm);
+        if (odometerError) {
+          setError(odometerError);
+          return;
+        }
+      }
 
       const response = await createDriverFuelEntry(host, token, {
         vehicle_id: draft.vehicleId,
@@ -250,21 +283,47 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
           </p>
         ) : null}
         <form className="stack" data-testid="driver-fuel-form" onSubmit={onSubmit}>
-          <label className="field">
-            <span>Vehicle</span>
-            <select
-              data-testid="driver-fuel-vehicle"
-              onChange={(event) => updateDraft({ vehicleId: event.target.value || null })}
-              value={draft.vehicleId ?? ''}
-            >
-              {vehicles.length === 0 ? <option value="">No vehicles available</option> : null}
-              {vehicles.map((vehicle) => (
-                <option key={vehicle.id} value={vehicle.id}>
-                  {vehicle.fleet_no} {vehicle.plate_no ? `(${vehicle.plate_no})` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="vehicle-odometer-row" data-testid="driver-fuel-vehicle-odometer-row">
+            <label className="field">
+              <span>Vehicle</span>
+              <select
+                data-testid="driver-fuel-vehicle"
+                onChange={(event) => {
+                  updateDraft({ vehicleId: event.target.value || null });
+                  requestAnimationFrame(() => odometerInputRef.current?.focus());
+                }}
+                value={draft.vehicleId ?? ''}
+              >
+                {vehicles.length === 0 ? <option value="">No vehicles available</option> : null}
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.fleet_no} {vehicle.plate_no ? `(${vehicle.plate_no})` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Odometer (km)</span>
+              <input
+                data-testid="driver-fuel-odometer"
+                inputMode="numeric"
+                min="0"
+                onChange={(event) => updateDraft({ odometerKm: event.target.value })}
+                ref={odometerInputRef}
+                required={!draft.odometerFallbackUsed}
+                type="number"
+                value={draft.odometerKm}
+              />
+              <small className="field-hint" data-testid="driver-fuel-previous-odometer">
+                {formatPreviousOdometer(previousOdometerKm)}
+              </small>
+              {odometerValidationMessage ? (
+                <small className="status error" data-testid="driver-fuel-odometer-warning">
+                  {odometerValidationMessage}
+                </small>
+              ) : null}
+            </label>
+          </div>
           <label className="field">
             <span>Entry date</span>
             <input onChange={(event) => updateDraft({ entryDate: event.target.value })} type="date" value={draft.entryDate} />
@@ -343,18 +402,6 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
               />
             </label>
           ) : null}
-          <label className="field">
-            <span>Odometer (km)</span>
-            <input
-              data-testid="driver-fuel-odometer"
-              inputMode="numeric"
-              min="0"
-              onChange={(event) => updateDraft({ odometerKm: event.target.value })}
-              required={!draft.odometerFallbackUsed}
-              type="number"
-              value={draft.odometerKm}
-            />
-          </label>
           <label className="checkbox">
             <input
               checked={draft.odometerFallbackUsed}
@@ -401,7 +448,12 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
             <span>Notes</span>
             <input onChange={(event) => updateDraft({ notes: event.target.value })} type="text" value={draft.notes} />
           </label>
-          <button className="button" data-testid="driver-submit-fuel-entry" disabled={submitting} type="submit">
+          <button
+            className="button"
+            data-testid="driver-submit-fuel-entry"
+            disabled={submitting || odometerRequiredMissing || Boolean(odometerValidationMessage)}
+            type="submit"
+          >
             {submitting ? 'Submitting...' : 'Submit fuel entry'}
           </button>
           {error ? (

@@ -19,9 +19,19 @@ test('driver can submit fuel entry and gets validation for missing approved-sour
   await expect(page).toHaveURL(/\/fuel-entry$/);
 
   await expect(page.getByTestId('driver-fuel-form')).toBeVisible();
+  await expect(page.getByTestId('driver-fuel-vehicle-odometer-row')).toBeVisible();
+  await expect(page.getByTestId('driver-fuel-previous-odometer')).toContainText('Previous:');
+
+  await page.getByTestId('driver-fuel-vehicle').selectOption({ index: 1 });
+  await page.waitForTimeout(100);
+  await expect(page.getByTestId('driver-fuel-odometer')).toBeFocused();
+
   await page.getByTestId('driver-fuel-source-type').selectOption('approved_source');
   await page.getByTestId('driver-fuel-liters').fill('25');
-  await page.getByTestId('driver-fuel-odometer').fill('120500');
+  const previousText = (await page.getByTestId('driver-fuel-previous-odometer').textContent()) ?? '';
+  const previousMatch = previousText.match(/(\d[\d,]*)\s*km/i);
+  const baseline = previousMatch ? Number(previousMatch[1].replace(/,/g, '')) : 0;
+  await page.getByTestId('driver-fuel-odometer').fill(String(Math.max(1, baseline + 1)));
   await page.getByTestId('driver-submit-fuel-entry').click();
   await expect(page.getByTestId('driver-fuel-error')).toContainText('Approved source context is required.');
 

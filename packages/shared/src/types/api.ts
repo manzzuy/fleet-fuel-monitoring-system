@@ -402,6 +402,7 @@ export interface VehicleLookupRecord {
   id: string;
   fleet_no: string;
   plate_no: string | null;
+  previous_odometer_km?: number | null;
   is_active?: boolean;
   site: {
     id: string;

@@ -55,11 +55,33 @@ driverRouter.get(
       },
     });
 
+    const vehicleIds = rows.map((row) => row.id);
+    const latestOdometerByVehicle = new Map<string, number | null>();
+    if (vehicleIds.length > 0) {
+      const latestOdometerRows = await prisma.fuelEntry.findMany({
+        where: {
+          tenantId: req.tenant!.id,
+          vehicleId: { in: vehicleIds },
+          odometerKm: { not: null },
+        },
+        orderBy: [{ vehicleId: 'asc' }, { entryDate: 'desc' }, { createdAt: 'desc' }],
+        distinct: ['vehicleId'],
+        select: {
+          vehicleId: true,
+          odometerKm: true,
+        },
+      });
+      for (const odometerRow of latestOdometerRows) {
+        latestOdometerByVehicle.set(odometerRow.vehicleId, odometerRow.odometerKm);
+      }
+    }
+
     res.json({
       items: rows.map((row) => ({
         id: row.id,
         fleet_no: row.fleetNumber,
         plate_no: row.plateNumber,
+        previous_odometer_km: latestOdometerByVehicle.get(row.id) ?? null,
       })),
       request_id: req.requestId,
     });
