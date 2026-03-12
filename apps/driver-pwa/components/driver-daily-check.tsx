@@ -185,7 +185,6 @@ const PAPER_TEMPLATE: Record<GroupName, PaperTemplateItem[]> = {
       icon: '❄️',
       aliases: ['air conditioner', 'a/c', 'ac'],
     },
-    { key: 'other', labelEn: 'Other', labelAr: 'أخرى', icon: '📌', aliases: ['other'] },
   ],
 };
 
@@ -255,11 +254,6 @@ const PAPER_ROW_LAYOUT: PaperRowSpec[] = [
       { group: 'Operational Controls', key: 'plate-visible' },
     ],
   },
-  {
-    cells: [
-      { group: 'Documentation & Tools', key: 'other' },
-    ],
-  },
 ];
 
 function templateUiKey(group: GroupName, key: string) {
@@ -295,6 +289,14 @@ interface DailyChecklistDraftV2 {
   savedAt: string;
   selectedVehicleId: string;
   itemState: Record<string, UiItemState>;
+}
+
+interface DailyChecklistDraftV3 {
+  version: 3;
+  savedAt: string;
+  selectedVehicleId: string;
+  itemState: Record<string, UiItemState>;
+  generalComment: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -338,6 +340,27 @@ function parseDraftV2(value: unknown): DailyChecklistDraftV2 | null {
   };
 }
 
+function parseDraftV3(value: unknown): DailyChecklistDraftV3 | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  if (
+    value.version !== 3 ||
+    !isRecord(value.itemState) ||
+    typeof value.selectedVehicleId !== 'string' ||
+    typeof value.generalComment !== 'string'
+  ) {
+    return null;
+  }
+  return {
+    version: 3,
+    savedAt: typeof value.savedAt === 'string' ? value.savedAt : '',
+    selectedVehicleId: value.selectedVehicleId,
+    itemState: parseLegacyDraft(value.itemState),
+    generalComment: value.generalComment,
+  };
+}
+
 function normalize(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
@@ -346,8 +369,11 @@ function toApiStatus(status: UiStatus): ApiStatus {
   return status === 'ISSUE' ? 'NOT_OK' : status === 'PASS' ? 'OK' : 'NA';
 }
 
-function hasDraftContent(itemState: Record<string, UiItemState>, selectedVehicleId: string) {
+function hasDraftContent(itemState: Record<string, UiItemState>, selectedVehicleId: string, generalComment: string) {
   if (selectedVehicleId) {
+    return true;
+  }
+  if (generalComment.trim()) {
     return true;
   }
   return Object.values(itemState).some((state) => Boolean(state.status || state.notes.trim() || state.photoName));
@@ -370,6 +396,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
   const [assignedSiteLabel, setAssignedSiteLabel] = useState<string>('Not assigned');
   const [pendingPhotos, setPendingPhotos] = useState<Record<string, File>>({});
   const [activeDefectKey, setActiveDefectKey] = useState<string | null>(null);
+  const [generalComment, setGeneralComment] = useState<string>('');
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
 
   async function loadChecklist(activeHost: string, activeSubdomain: string) {
@@ -405,9 +432,20 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
       if (draft) {
         try {
           const parsed = JSON.parse(draft) as unknown;
-          const draftV2 = parseDraftV2(parsed);
+          const draftV3 = parseDraftV3(parsed);
+          const draftV2 = draftV3 ? null : parseDraftV2(parsed);
           let restored = false;
-          if (draftV2 && hasDraftContent(draftV2.itemState, draftV2.selectedVehicleId)) {
+          if (draftV3 && hasDraftContent(draftV3.itemState, draftV3.selectedVehicleId, draftV3.generalComment)) {
+            setItemState(draftV3.itemState);
+            setGeneralComment(draftV3.generalComment);
+            if (draftV3.selectedVehicleId) {
+              setSelectedVehicleId(draftV3.selectedVehicleId);
+            } else {
+              const preferredVehicleId = dashboard.assignment.vehicle?.id ?? driverVehicles.items[0]?.id ?? '';
+              setSelectedVehicleId(preferredVehicleId);
+            }
+            restored = true;
+          } else if (draftV2 && hasDraftContent(draftV2.itemState, draftV2.selectedVehicleId, '')) {
             setItemState(draftV2.itemState);
             if (draftV2.selectedVehicleId) {
               setSelectedVehicleId(draftV2.selectedVehicleId);
@@ -421,7 +459,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
             setItemState(legacy);
             const preferredVehicleId = dashboard.assignment.vehicle?.id ?? driverVehicles.items[0]?.id ?? '';
             setSelectedVehicleId(preferredVehicleId);
-            if (hasDraftContent(legacy, preferredVehicleId)) {
+            if (hasDraftContent(legacy, preferredVehicleId, '')) {
               restored = true;
             }
           }
@@ -521,7 +559,14 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
       })).filter((row) => row.cells.length > 0),
     [uiItemByKey],
   );
-  const configuredItems = useMemo(() => allUiItems.filter((item) => item.configured && item.apiItemCode), [allUiItems]);
+  const visibleChecklistItems = useMemo(
+    () => paperRows.flatMap((row) => row.cells.map((cell) => cell.item)),
+    [paperRows],
+  );
+  const configuredItems = useMemo(
+    () => visibleChecklistItems.filter((item) => item.configured && item.apiItemCode),
+    [visibleChecklistItems],
+  );
   const requiredConfiguredItems = useMemo(() => configuredItems.filter((item) => item.required), [configuredItems]);
   const answeredConfiguredItems = useMemo(
     () => configuredItems.filter((item) => Boolean((itemState[item.uiKey] ?? defaultItemState).status)),
@@ -633,18 +678,19 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
     if (!subdomain || loading) {
       return;
     }
-    if (!hasDraftContent(itemState, selectedVehicleId)) {
+    if (!hasDraftContent(itemState, selectedVehicleId, generalComment)) {
       window.localStorage.removeItem(draftStorageKey(subdomain));
       return;
     }
-    const payload: DailyChecklistDraftV2 = {
-      version: 2,
+    const payload: DailyChecklistDraftV3 = {
+      version: 3,
       savedAt: new Date().toISOString(),
       selectedVehicleId,
       itemState,
+      generalComment,
     };
     window.localStorage.setItem(draftStorageKey(subdomain), JSON.stringify(payload));
-  }, [itemState, loading, selectedVehicleId, subdomain]);
+  }, [generalComment, itemState, loading, selectedVehicleId, subdomain]);
 
   async function onSubmit() {
     if (!host || !subdomain) {
@@ -699,6 +745,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
         window.localStorage.removeItem(draftStorageKey(subdomain));
       }
       setItemState({});
+      setGeneralComment('');
       setPendingPhotos({});
       setRestoredDraft(false);
     } catch (caught) {
@@ -714,6 +761,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
 
   return (
     <DriverShell
+      compactTop
       onSignOut={signOut}
       subdomain={subdomain ?? 'tenant'}
       subtitle="Complete checklist items before starting operations."
@@ -750,25 +798,21 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
           </p>
         ) : null}
 
-        {!loading && !error && restoredDraft ? (
-          <p className="status" data-testid="driver-checklist-draft-restored">
-            In-progress checklist restored.
-          </p>
-        ) : null}
-
-        {!loading && !error && master ? (
-          <p className="status">
-            Required items: {requiredConfiguredItems.length} / Total items: {configuredItems.length}
-          </p>
-        ) : null}
-
         {!loading && !error && master ? (
           <div className="stack" data-testid="driver-checklist-form">
             {submitError ? <p className="status error">{submitError}</p> : null}
 
-            <div className="checklist-sticky-progress" data-testid="driver-checklist-progress-header">
+            <div className="checklist-compact-header" data-testid="driver-checklist-progress-header">
+              <button className="checklist-back-link" onClick={() => router.push('/dashboard')} type="button">
+                ← Daily Inspection
+              </button>
+              <div className="checklist-compact-meta">
+                <span><strong>Driver:</strong> {driverName}</span>
+                <span><strong>Vehicle:</strong> {assignedVehicleLabel}</span>
+                <span><strong>Site:</strong> {assignedSiteLabel}</span>
+                <span><strong>Date:</strong> {new Date().toLocaleDateString()}</span>
+              </div>
               <div className="checklist-sticky-progress-head">
-                <strong>Daily Inspection</strong>
                 <span>{answeredConfiguredItems.length} / {configuredItems.length} completed</span>
               </div>
               <div className="checklist-sticky-progress-meta">
@@ -779,25 +823,11 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
                 <span style={{ width: `${progressPct}%` }} />
               </div>
             </div>
-
-            <div className="checklist-context-grid">
-              <div className="checklist-context-card">
-                <span>Driver</span>
-                <strong>{driverName}</strong>
-              </div>
-              <div className="checklist-context-card">
-                <span>Assigned Vehicle</span>
-                <strong>{assignedVehicleLabel}</strong>
-              </div>
-              <div className="checklist-context-card">
-                <span>Assigned Site</span>
-                <strong>{assignedSiteLabel}</strong>
-              </div>
-              <div className="checklist-context-card">
-                <span>Date / Time</span>
-                <strong>{new Date().toLocaleString()}</strong>
-              </div>
-            </div>
+            {restoredDraft ? (
+              <p className="status checklist-thin-banner" data-testid="driver-checklist-draft-restored">
+                Draft restored.
+              </p>
+            ) : null}
 
             <div className="checklist-progress">
               <strong>{requiredCompleted}</strong> / {requiredConfiguredItems.length} required completed
@@ -877,6 +907,18 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
                 ))}
               </div>
             </section>
+
+            <label className="field checklist-general-comment">
+              <span>General comment (optional)</span>
+              <textarea
+                className="checklist-comment-input"
+                data-testid="driver-checklist-general-comment"
+                onChange={(event) => setGeneralComment(event.target.value)}
+                placeholder="Additional note..."
+                rows={3}
+                value={generalComment}
+              />
+            </label>
 
             {activeDefectKey ? (
               <div className="defect-sheet-overlay" onClick={() => setActiveDefectKey(null)} role="presentation">

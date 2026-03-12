@@ -15,9 +15,10 @@ interface DriverShellProps {
   subtitle: string;
   onSignOut: () => void;
   children: React.ReactNode;
+  compactTop?: boolean;
 }
 
-export function DriverShell({ subdomain, title, subtitle, onSignOut, children }: DriverShellProps) {
+export function DriverShell({ subdomain, title, subtitle, onSignOut, children, compactTop = false }: DriverShellProps) {
   const pathname = usePathname();
   const canVibrate = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
 
@@ -29,31 +30,41 @@ export function DriverShell({ subdomain, title, subtitle, onSignOut, children }:
 
   return (
     <main className="driver-shell">
-      <section className="hero native-app-header">
-        <div>
-          <p className="eyebrow">Driver tenant</p>
-          <h1>{subdomain}</h1>
-        </div>
-        <span className="native-badge">Ready</span>
-      </section>
-      <section className="panel">
-        <div className="toolbar">
-          <div>
-            <h2>{title}</h2>
-            <p>{subtitle}</p>
-          </div>
-          <button
-            className="button ghost compact native-signout"
-            onClick={() => {
-              hapticTap();
-              onSignOut();
-            }}
-            type="button"
-          >
-            Sign out
-          </button>
-        </div>
-      </section>
+      {!compactTop ? (
+        <>
+          <section className="hero native-app-header">
+            <div>
+              <p className="eyebrow">Driver tenant</p>
+              <h1>{subdomain}</h1>
+            </div>
+            <span className="native-badge">Ready</span>
+          </section>
+          <section className="panel">
+            <div className="toolbar">
+              <div>
+                <h2>{title}</h2>
+                <p>{subtitle}</p>
+              </div>
+              <button
+                className="button ghost compact native-signout"
+                onClick={() => {
+                  hapticTap();
+                  onSignOut();
+                }}
+                type="button"
+              >
+                Sign out
+              </button>
+            </div>
+          </section>
+        </>
+      ) : (
+        <section className="sr-only-driver-header" aria-hidden="true">
+          <span>{subdomain}</span>
+          <span>{title}</span>
+          <span>{subtitle}</span>
+        </section>
+      )}
       <section className="driver-content">{children}</section>
       <nav aria-label="Primary" className="tab-nav native-tab-nav">
         {navItems.map((item) => (
