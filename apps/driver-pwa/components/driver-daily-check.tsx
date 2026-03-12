@@ -44,6 +44,16 @@ interface PaperTemplateItem {
   aliases: string[];
 }
 
+interface PaperRowCellSpec {
+  key: string;
+  group: GroupName;
+  placeholder?: boolean;
+}
+
+interface PaperRowSpec {
+  cells: PaperRowCellSpec[];
+}
+
 const PAPER_TEMPLATE: Record<GroupName, PaperTemplateItem[]> = {
   'Mechanical & Exterior': [
     { key: 'body', labelEn: 'Body', labelAr: 'الهيكل', icon: '🚛', aliases: ['body'] },
@@ -180,6 +190,85 @@ const PAPER_TEMPLATE: Record<GroupName, PaperTemplateItem[]> = {
   ],
 };
 
+const PAPER_ROW_LAYOUT: PaperRowSpec[] = [
+  {
+    cells: [
+      { group: 'Mechanical & Exterior', key: 'body' },
+      { group: 'Fluids & Electrical', key: 'battery' },
+      { group: 'Safety & Emergency', key: 'first-aid' },
+    ],
+  },
+  {
+    cells: [
+      { group: 'Mechanical & Exterior', key: 'steering' },
+      { group: 'Fluids & Electrical', key: 'oil' },
+      { group: 'Safety & Emergency', key: 'extinguisher' },
+    ],
+  },
+  {
+    cells: [
+      { group: 'Mechanical & Exterior', key: 'wipers' },
+      { group: 'Fluids & Electrical', key: 'water' },
+      { group: 'Documentation & Tools', key: 'tools' },
+    ],
+  },
+  {
+    cells: [
+      { group: 'Mechanical & Exterior', key: 'indicators' },
+      { group: 'Safety & Emergency', key: 'horn' },
+      { group: 'Documentation & Tools', key: 'jack' },
+    ],
+  },
+  {
+    cells: [
+      { group: 'Mechanical & Exterior', key: 'tyres' },
+      { group: 'Fluids & Electrical', key: 'fuel' },
+      { group: 'Safety & Emergency', key: 'brakes' },
+    ],
+  },
+  {
+    cells: [
+      { group: 'Mechanical & Exterior', key: 'mirrors' },
+      { group: 'Safety & Emergency', key: 'seatbelt' },
+      { group: 'Operational Controls', key: 'radio' },
+    ],
+  },
+  {
+    cells: [
+      { group: 'Mechanical & Exterior', key: 'load' },
+      { group: 'Documentation & Tools', key: 'registration' },
+      { group: 'Documentation & Tools', key: 'ras' },
+    ],
+  },
+  {
+    cells: [
+      { group: 'Mechanical & Exterior', key: 'reverse' },
+      { group: 'Operational Controls', key: 'speed' },
+      { group: 'Documentation & Tools', key: 'aircon' },
+    ],
+  },
+  {
+    cells: [
+      { group: 'Documentation & Tools', key: 'lock' },
+      { group: 'Operational Controls', key: 'measure' },
+      { group: 'Operational Controls', key: 'tyre-pressure' },
+      { group: 'Operational Controls', key: 'high-flag' },
+      { group: 'Operational Controls', key: 'plate-visible' },
+    ],
+  },
+  {
+    cells: [
+      { group: 'Documentation & Tools', key: 'other' },
+      { group: 'Documentation & Tools', key: 'other-2', placeholder: true },
+      { group: 'Documentation & Tools', key: 'other-3', placeholder: true },
+    ],
+  },
+];
+
+function templateUiKey(group: GroupName, key: string) {
+  return `${group}:${key}`;
+}
+
 interface UiChecklistItem {
   uiKey: string;
   labelEn: string;
@@ -195,9 +284,10 @@ interface UiItemState {
   status: UiStatus;
   notes: string;
   photoName: string;
+  severity: 'low' | 'high';
 }
 
-const defaultItemState: UiItemState = { status: null, notes: '', photoName: '' };
+const defaultItemState: UiItemState = { status: null, notes: '', photoName: '', severity: 'low' };
 
 function draftStorageKey(subdomain: string) {
   return `fleetfuel.driver.daily-check.draft.${subdomain}`;
@@ -221,7 +311,8 @@ function isUiItemState(value: unknown): value is UiItemState {
   return (
     (value.status === 'PASS' || value.status === 'ISSUE' || value.status === null) &&
     typeof value.notes === 'string' &&
-    typeof value.photoName === 'string'
+    typeof value.photoName === 'string' &&
+    (value.severity === 'low' || value.severity === 'high' || typeof value.severity === 'undefined')
   );
 }
 
@@ -230,7 +321,9 @@ function parseLegacyDraft(value: unknown): Record<string, UiItemState> {
     return {};
   }
   const entries = Object.entries(value).filter((entry): entry is [string, UiItemState] => isUiItemState(entry[1]));
-  return Object.fromEntries(entries);
+  return Object.fromEntries(
+    entries.map(([key, state]) => [key, { ...defaultItemState, ...state } satisfies UiItemState]),
+  );
 }
 
 function parseDraftV2(value: unknown): DailyChecklistDraftV2 | null {
@@ -279,11 +372,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
   const [assignedVehicleLabel, setAssignedVehicleLabel] = useState<string>('Not assigned');
   const [assignedSiteLabel, setAssignedSiteLabel] = useState<string>('Not assigned');
   const [pendingPhotos, setPendingPhotos] = useState<Record<string, File>>({});
-  const [showIssuesOnly, setShowIssuesOnly] = useState(false);
-  const [recentlyChangedKey, setRecentlyChangedKey] = useState<string | null>(null);
-  const [expandedGroups, setExpandedGroups] = useState<Record<GroupName, boolean>>(
-    Object.fromEntries(GROUP_ORDER.map((group, index) => [group, index === 0])) as Record<GroupName, boolean>,
-  );
+  const [activeDefectKey, setActiveDefectKey] = useState<string | null>(null);
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
 
   async function loadChecklist(activeHost: string, activeSubdomain: string) {
@@ -313,10 +402,6 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
         dashboard.assignment.vehicle
           ? `${dashboard.assignment.vehicle.fleet_no}${dashboard.assignment.vehicle.plate_no ? ` (${dashboard.assignment.vehicle.plate_no})` : ''}`
           : 'Not assigned',
-      );
-
-      setExpandedGroups(
-        Object.fromEntries(GROUP_ORDER.map((group, index) => [group, index === 0])) as Record<GroupName, boolean>,
       );
 
       const draft = window.localStorage.getItem(draftStorageKey(activeSubdomain));
@@ -418,6 +503,53 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
   }, [master]);
 
   const allUiItems = useMemo(() => GROUP_ORDER.flatMap((group) => uiItemsByGroup[group]), [uiItemsByGroup]);
+  const uiItemByKey = useMemo(() => {
+    const map = new Map<string, UiChecklistItem>();
+    for (const item of allUiItems) {
+      map.set(item.uiKey, item);
+    }
+    return map;
+  }, [allUiItems]);
+  const paperRows = useMemo(
+    () =>
+      PAPER_ROW_LAYOUT.map((row) => ({
+        cells: row.cells.map((cell) => {
+          if (cell.placeholder) {
+            return {
+              placeholder: true as const,
+              uiKey: `${cell.group}:${cell.key}`,
+              item: {
+                uiKey: `${cell.group}:${cell.key}`,
+                labelEn: 'Other',
+                labelAr: 'أخرى',
+                icon: '📌',
+                group: cell.group,
+                configured: false,
+                required: false,
+              } satisfies UiChecklistItem,
+            };
+          }
+          const lookupKey = templateUiKey(cell.group, cell.key);
+          const item = uiItemByKey.get(lookupKey);
+          return {
+            placeholder: false as const,
+            uiKey: lookupKey,
+            item:
+              item ??
+              ({
+                uiKey: lookupKey,
+                labelEn: cell.key,
+                labelAr: 'عنصر',
+                icon: '📌',
+                group: cell.group,
+                configured: false,
+                required: false,
+              } satisfies UiChecklistItem),
+          };
+        }),
+      })),
+    [uiItemByKey],
+  );
   const configuredItems = useMemo(() => allUiItems.filter((item) => item.configured && item.apiItemCode), [allUiItems]);
   const requiredConfiguredItems = useMemo(() => configuredItems.filter((item) => item.required), [configuredItems]);
   const answeredConfiguredItems = useMemo(
@@ -428,24 +560,6 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
     () => configuredItems.filter((item) => (itemState[item.uiKey] ?? defaultItemState).status === 'ISSUE').length,
     [configuredItems, itemState],
   );
-
-  const sectionSummary = useMemo(() => {
-    return Object.fromEntries(
-      GROUP_ORDER.map((group) => {
-        const items = uiItemsByGroup[group].filter((item) => item.configured);
-        const answered = items.filter((item) => Boolean((itemState[item.uiKey] ?? defaultItemState).status)).length;
-        const issues = items.filter((item) => (itemState[item.uiKey] ?? defaultItemState).status === 'ISSUE').length;
-        return [
-          group,
-          {
-            total: items.length,
-            answered,
-            issues,
-          },
-        ];
-      }),
-    ) as Record<GroupName, { total: number; answered: number; issues: number }>;
-  }, [itemState, uiItemsByGroup]);
 
   const requiredCompleted = useMemo(
     () =>
@@ -479,7 +593,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
       [uiKey]: {
         ...current,
         status,
-        ...(status === 'PASS' ? { notes: '', photoName: '' } : {}),
+        ...(status === 'PASS' ? { notes: '', photoName: '', severity: 'low' as const } : {}),
       },
     };
     if (status === 'PASS') {
@@ -490,16 +604,34 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
       });
     }
     saveDraft(next);
-    setRecentlyChangedKey(uiKey);
+    if (status === 'ISSUE') {
+      setActiveDefectKey(uiKey);
+    } else if (activeDefectKey === uiKey) {
+      setActiveDefectKey(null);
+    }
 
     if (status === 'PASS' && nextUnansweredConfiguredItem) {
-      const nextItem = nextUnansweredConfiguredItem;
-      setExpandedGroups((currentGroups) => ({ ...currentGroups, [nextItem.group]: true }));
       requestAnimationFrame(() => {
-        const nextElement = cardRefs.current[nextItem.uiKey];
+        const nextElement = cardRefs.current[nextUnansweredConfiguredItem.uiKey];
         nextElement?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       });
     }
+  }
+
+  function saveDefect(uiKey: string, notes: string, severity: 'low' | 'high', photoName: string) {
+    const current = itemState[uiKey] ?? defaultItemState;
+    const next = {
+      ...itemState,
+      [uiKey]: {
+        ...current,
+        status: 'ISSUE' as const,
+        notes,
+        severity,
+        photoName,
+      },
+    };
+    saveDraft(next);
+    setActiveDefectKey(null);
   }
 
   function setNotes(uiKey: string, notes: string) {
@@ -542,14 +674,6 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
     };
     window.localStorage.setItem(draftStorageKey(subdomain), JSON.stringify(payload));
   }, [itemState, loading, selectedVehicleId, subdomain]);
-
-  useEffect(() => {
-    if (!recentlyChangedKey) {
-      return;
-    }
-    const timer = window.setTimeout(() => setRecentlyChangedKey(null), 260);
-    return () => window.clearTimeout(timer);
-  }, [recentlyChangedKey]);
 
   async function onSubmit() {
     if (!host || !subdomain) {
@@ -713,34 +837,6 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
               <strong>{requiredCompleted}</strong> / {requiredConfiguredItems.length} required completed
             </div>
 
-            <div className="segmented segmented-two">
-              <button
-                className="button ghost compact"
-                onClick={() =>
-                  setExpandedGroups(Object.fromEntries(GROUP_ORDER.map((group) => [group, true])) as Record<GroupName, boolean>)
-                }
-                type="button"
-              >
-                Expand all
-              </button>
-              <button
-                className="button ghost compact"
-                onClick={() =>
-                  setExpandedGroups(
-                    Object.fromEntries(GROUP_ORDER.map((group, index) => [group, index === 0])) as Record<GroupName, boolean>,
-                  )
-                }
-                type="button"
-              >
-                Compact view
-              </button>
-            </div>
-
-            <label className="checkbox">
-              <input checked={showIssuesOnly} onChange={(event) => setShowIssuesOnly(event.target.checked)} type="checkbox" />
-              <span>Show issues only</span>
-            </label>
-
             <label className="field">
               <span>Vehicle</span>
               <select data-testid="driver-checklist-vehicle" onChange={(event) => setSelectedVehicleId(event.target.value)} value={selectedVehicleId}>
@@ -753,125 +849,168 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
               </select>
             </label>
 
-            <div className="checklist-sections">
-              {GROUP_ORDER.map((group) => (
-                <section className="panel" key={group}>
-                  {(() => {
-                    const summary = sectionSummary[group];
-                    const sectionState =
-                      summary.issues > 0 ? '⚠' : summary.total > 0 && summary.answered === summary.total ? '✔' : '○';
-                    return (
-                  <button
-                    aria-expanded={expandedGroups[group] ? 'true' : 'false'}
-                    className="section-toggle"
-                    onClick={() => setExpandedGroups((current) => ({ ...current, [group]: !current[group] }))}
-                    type="button"
+            <section className="paper-form" data-testid="driver-checklist-paper-form">
+              <div className="paper-header">
+                <div className="paper-header-row">
+                  <span>NAME: {driverName}</span>
+                  <span>FLEET/REGN. NO: {assignedVehicleLabel}</span>
+                </div>
+                <div className="paper-header-row">
+                  <span>C. NO.:</span>
+                  <span>DATE: {new Date().toLocaleDateString()}</span>
+                </div>
+              </div>
+
+              <div className="paper-grid">
+                {paperRows.map((row, rowIndex) => (
+                  <div
+                    className={`paper-row ${row.cells.length === 5 ? 'paper-row-five' : 'paper-row-three'}`}
+                    key={`paper-row-${rowIndex + 1}`}
                   >
-                    <h3>
-                      {group} <span className="section-state-indicator">{sectionState}</span>
-                    </h3>
-                    <span className="section-issues-badge">{summary.total} items • {summary.issues} issues</span>
-                    <span>{expandedGroups[group] ? '−' : '+'}</span>
-                  </button>
-                    );
-                  })()}
-
-                  {expandedGroups[group] ? (
-                    <div className="checklist-group-grid">
-                      {uiItemsByGroup[group]
-                        .filter((item) => {
-                          if (!showIssuesOnly) {
-                            return true;
-                          }
-                          return (itemState[item.uiKey] ?? defaultItemState).status === 'ISSUE';
-                        })
-                        .map((item) => {
-                        const state = itemState[item.uiKey] ?? defaultItemState;
-                        return (
-                          <article
-                            className={`checklist-card${item.configured ? '' : ' disabled'}${recentlyChangedKey === item.uiKey ? ' pulse' : ''}`}
-                            data-testid={`driver-checklist-item-${item.uiKey}`}
-                            key={item.uiKey}
-                            ref={(element) => {
-                              cardRefs.current[item.uiKey] = element;
-                            }}
-                          >
-                            <div className="checklist-item-label">
-                              <span className="checklist-item-icon" aria-hidden="true">
-                                {item.icon}
+                    {row.cells.map(({ item, uiKey, placeholder }) => {
+                      const state = itemState[item.uiKey] ?? defaultItemState;
+                      const isIssue = state.status === 'ISSUE';
+                      return (
+                        <article
+                          className={`checklist-card paper-cell${item.configured ? '' : ' disabled'}${placeholder ? ' placeholder' : ''}`}
+                          data-testid={`driver-checklist-item-${item.uiKey}`}
+                          key={uiKey}
+                          ref={(element) => {
+                            cardRefs.current[item.uiKey] = element;
+                          }}
+                        >
+                          <div className="checklist-item-label">
+                            <span className="checklist-item-icon" aria-hidden="true">
+                              {item.icon}
+                            </span>
+                            <p>
+                              <span className="checklist-item-label-en">
+                                {item.labelEn} {item.required ? <strong>(Required)</strong> : null}
                               </span>
-                              <p>
-                                <span className="checklist-item-label-en">
-                                  {item.labelEn} {item.required ? <strong>(Required)</strong> : null}
-                                </span>
-                                <span className="checklist-item-label-ar">{item.labelAr}</span>
-                              </p>
-                            </div>
+                              <span className="checklist-item-label-ar">{item.labelAr}</span>
+                            </p>
+                          </div>
 
-                            <div className="segmented segmented-two">
-                              <button
-                                aria-label="PASS"
-                                className={`toggle-option ${state.status === 'PASS' ? 'active pass' : ''}`}
-                                data-testid={`driver-checklist-pass-${item.uiKey}`}
-                                disabled={!item.configured}
-                                onClick={() => setStatus(item.uiKey, 'PASS')}
-                                type="button"
-                              >
-                                🟢 PASS
-                              </button>
-                              <button
-                                aria-label="ISSUE"
-                                className={`toggle-option ${state.status === 'ISSUE' ? 'active issue' : ''}`}
-                                data-testid={`driver-checklist-issue-${item.uiKey}`}
-                                disabled={!item.configured}
-                                onClick={() => setStatus(item.uiKey, 'ISSUE')}
-                                type="button"
-                              >
-                                🔴 ISSUE
-                              </button>
-                            </div>
+                          <div className="paper-check-controls">
+                            <button
+                              aria-label="PASS"
+                              className={`paper-check pass ${state.status === 'PASS' ? 'active pass' : ''}`}
+                              data-testid={`driver-checklist-pass-${item.uiKey}`}
+                              disabled={!item.configured || placeholder}
+                              onClick={() => setStatus(item.uiKey, 'PASS')}
+                              type="button"
+                            >
+                              <span aria-hidden="true">✓</span>
+                            </button>
+                            <button
+                              aria-label="ISSUE"
+                              className={`paper-check issue ${isIssue ? 'active issue' : ''}`}
+                              data-testid={`driver-checklist-issue-${item.uiKey}`}
+                              disabled={!item.configured || placeholder}
+                              onClick={() => setStatus(item.uiKey, 'ISSUE')}
+                              type="button"
+                            >
+                              <span aria-hidden="true">✕</span>
+                            </button>
+                          </div>
 
-                            {state.status === 'ISSUE' ? (
-                              <div className="issue-fields" data-testid={`driver-checklist-issue-fields-${item.uiKey}`}>
-                                <label className="field">
-                                  <span>Issue note</span>
-                                  <input
-                                    data-testid={`driver-checklist-issue-note-${item.uiKey}`}
-                                    onChange={(event) => setNotes(item.uiKey, event.target.value)}
-                                    placeholder="Short issue note"
-                                    type="text"
-                                    value={state.notes}
-                                  />
-                                </label>
-                                <label className="field">
-                                  <span>Issue photo</span>
-                                  <input
-                                    accept="image/*"
-                                    capture="environment"
-                                    data-testid={`driver-checklist-issue-photo-${item.uiKey}`}
-                                    onChange={(event) => {
-                                      const file = event.target.files?.[0];
-                                      if (file) {
-                                        setPendingPhotos((currentPhotos) => ({ ...currentPhotos, [item.uiKey]: file }));
-                                        setPhoto(item.uiKey, file.name);
-                                      }
-                                    }}
-                                    type="file"
-                                  />
-                                </label>
-                                {state.photoName ? <p className="status">📷 {state.photoName}</p> : null}
-                              </div>
-                            ) : null}
+                          {!item.configured ? <p className="status">Not configured in tenant checklist.</p> : null}
+                        </article>
+                      );
+                    })}
+                  </div>
+                ))}
+                <div className="paper-signatures">
+                  <div>Sig. of Journey Manager</div>
+                  <div>Sig. of Driver</div>
+                </div>
+              </div>
 
-                            {!item.configured ? <p className="status">Not configured in tenant checklist.</p> : null}
-                          </article>
-                        );
-                      })}
-                    </div>
+              <div className="paper-legend">
+                <span>Tick where applicable:</span>
+                <span>□ Yes / OK</span>
+                <span>○ Not OK</span>
+              </div>
+            </section>
+
+            {activeDefectKey ? (
+              <div className="defect-sheet-overlay" onClick={() => setActiveDefectKey(null)} role="presentation">
+                <div className="defect-sheet" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
+                  <h3>Report Defect</h3>
+                  <p className="status">
+                    {(allUiItems.find((item) => item.uiKey === activeDefectKey)?.labelEn ?? 'Checklist item')}
+                  </p>
+                  <label className="field">
+                    <span>Issue note</span>
+                    <input
+                      data-testid={`driver-checklist-issue-note-${activeDefectKey}`}
+                      onChange={(event) => setNotes(activeDefectKey, event.target.value)}
+                      placeholder="Short issue note"
+                      type="text"
+                      value={(itemState[activeDefectKey] ?? defaultItemState).notes}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Severity</span>
+                    <select
+                      data-testid={`driver-checklist-issue-severity-${activeDefectKey}`}
+                      onChange={(event) =>
+                        saveDraft({
+                          ...itemState,
+                          [activeDefectKey]: {
+                            ...(itemState[activeDefectKey] ?? defaultItemState),
+                            status: 'ISSUE',
+                            severity: event.target.value === 'high' ? 'high' : 'low',
+                          },
+                        })
+                      }
+                      value={(itemState[activeDefectKey] ?? defaultItemState).severity}
+                    >
+                      <option value="low">Monitor</option>
+                      <option value="high">Critical</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Issue photo</span>
+                    <input
+                      accept="image/*"
+                      capture="environment"
+                      data-testid={`driver-checklist-issue-photo-${activeDefectKey}`}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) {
+                          setPendingPhotos((currentPhotos) => ({ ...currentPhotos, [activeDefectKey]: file }));
+                          setPhoto(activeDefectKey, file.name);
+                        }
+                      }}
+                      type="file"
+                    />
+                  </label>
+                  {(itemState[activeDefectKey] ?? defaultItemState).photoName ? (
+                    <p className="status">📷 {(itemState[activeDefectKey] ?? defaultItemState).photoName}</p>
                   ) : null}
-                </section>
-              ))}
-            </div>
+                  <div className="defect-sheet-actions">
+                    <button className="button ghost" onClick={() => setActiveDefectKey(null)} type="button">
+                      Cancel
+                    </button>
+                    <button
+                      className="button"
+                      onClick={() =>
+                        saveDefect(
+                          activeDefectKey,
+                          (itemState[activeDefectKey] ?? defaultItemState).notes,
+                          (itemState[activeDefectKey] ?? defaultItemState).severity,
+                          (itemState[activeDefectKey] ?? defaultItemState).photoName,
+                        )
+                      }
+                      type="button"
+                    >
+                      Save defect
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <div className="checklist-sticky-submit" data-testid="driver-checklist-sticky-submit">
               <div className="checklist-sticky-submit-meta">
