@@ -58,6 +58,7 @@ const PAPER_TEMPLATE: Record<GroupName, PaperTemplateItem[]> = {
   'Mechanical & Exterior': [
     { key: 'body', labelEn: 'Body', labelAr: 'الهيكل', icon: '🚛', aliases: ['body'] },
     { key: 'steering', labelEn: 'Steering', labelAr: 'الدركسون', icon: '🛞', aliases: ['steering'] },
+    { key: 'mirrors', labelEn: 'Mirrors', labelAr: 'المرايا', icon: '🪞', aliases: ['mirror'] },
     {
       key: 'wipers',
       labelEn: 'Wipers / Windscreen',
@@ -79,7 +80,6 @@ const PAPER_TEMPLATE: Record<GroupName, PaperTemplateItem[]> = {
       icon: '🛞',
       aliases: ['tyre', 'tire', 'wheel'],
     },
-    { key: 'mirrors', labelEn: 'Mirrors', labelAr: 'المرايا', icon: '🪞', aliases: ['mirror'] },
     {
       key: 'load',
       labelEn: 'Load Restraint',
