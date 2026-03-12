@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/daily-checks', label: 'Daily Check' },
-  { href: '/fuel-entry', label: 'Fuel Entry' },
+  { href: '/dashboard', label: 'Home', icon: '🏠' },
+  { href: '/daily-checks', label: 'Check', icon: '📋' },
+  { href: '/fuel-entry', label: 'Fuel', icon: '⛽' },
 ];
 
 interface DriverShellProps {
@@ -19,12 +19,22 @@ interface DriverShellProps {
 
 export function DriverShell({ subdomain, title, subtitle, onSignOut, children }: DriverShellProps) {
   const pathname = usePathname();
+  const canVibrate = typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
+
+  function hapticTap() {
+    if (canVibrate) {
+      navigator.vibrate(8);
+    }
+  }
 
   return (
     <main className="driver-shell">
-      <section className="hero">
-        <p className="eyebrow">Driver tenant</p>
-        <h1>{subdomain}</h1>
+      <section className="hero native-app-header">
+        <div>
+          <p className="eyebrow">Driver tenant</p>
+          <h1>{subdomain}</h1>
+        </div>
+        <span className="native-badge">Ready</span>
       </section>
       <section className="panel">
         <div className="toolbar">
@@ -32,19 +42,34 @@ export function DriverShell({ subdomain, title, subtitle, onSignOut, children }:
             <h2>{title}</h2>
             <p>{subtitle}</p>
           </div>
-          <button className="button ghost" onClick={onSignOut} type="button">
+          <button
+            className="button ghost compact native-signout"
+            onClick={() => {
+              hapticTap();
+              onSignOut();
+            }}
+            type="button"
+          >
             Sign out
           </button>
         </div>
       </section>
-      <nav className="tab-nav">
+      <section className="driver-content">{children}</section>
+      <nav aria-label="Primary" className="tab-nav native-tab-nav">
         {navItems.map((item) => (
-          <Link key={item.href} className={pathname === item.href ? 'tab active' : 'tab'} href={item.href}>
-            {item.label}
+          <Link
+            key={item.href}
+            className={pathname === item.href ? 'tab active native-tab' : 'tab native-tab'}
+            href={item.href}
+            onClick={() => hapticTap()}
+          >
+            <span aria-hidden="true" className="native-tab-icon">
+              {item.icon}
+            </span>
+            <span>{item.label}</span>
           </Link>
         ))}
       </nav>
-      {children}
     </main>
   );
 }
