@@ -49,49 +49,11 @@ const PAPER_TEMPLATE: Record<GroupName, PaperTemplateItem[]> = {
     { key: 'body', labelEn: 'Body', labelAr: 'الهيكل', icon: '🚛', aliases: ['body'] },
     { key: 'steering', labelEn: 'Steering', labelAr: 'الدركسون', icon: '🛞', aliases: ['steering'] },
     {
-      key: 'tyres',
-      labelEn: 'Tyres / Wheel Condition',
-      labelAr: 'الإطارات / العجلات',
-      icon: '🛞',
-      aliases: ['tyre', 'tire', 'wheel'],
-    },
-    {
       key: 'wipers',
       labelEn: 'Wipers / Windscreen',
       labelAr: 'المساحات / الزجاج',
       icon: '🪟',
       aliases: ['wiper', 'windscreen', 'windshield'],
-    },
-    { key: 'water', labelEn: 'Water Level', labelAr: 'مستوى الماء', icon: '💧', aliases: ['water', 'coolant'] },
-  ],
-  'Fluids & Electrical': [
-    { key: 'oil', labelEn: 'Oil (Level)', labelAr: 'مستوى الزيت', icon: '🛢️', aliases: ['oil'] },
-    { key: 'fuel', labelEn: 'Fuel', labelAr: 'الوقود', icon: '⛽', aliases: ['fuel'] },
-    { key: 'battery', labelEn: 'Battery', labelAr: 'البطارية', icon: '🔋', aliases: ['battery'] },
-    { key: 'electrical', labelEn: 'Electrical', labelAr: 'الكهرباء', icon: '⚡', aliases: ['electrical', 'fuse'] },
-  ],
-  'Safety & Emergency': [
-    {
-      key: 'extinguisher',
-      labelEn: 'Fire Extinguisher',
-      labelAr: 'طفاية الحريق',
-      icon: '🧯',
-      aliases: ['extinguisher'],
-    },
-    {
-      key: 'first-aid',
-      labelEn: 'First Aid Box',
-      labelAr: 'الإسعافات الأولية',
-      icon: '🩹',
-      aliases: ['first aid', 'aid'],
-    },
-    { key: 'seatbelt', labelEn: 'Seat Belt', labelAr: 'حزام الأمان', icon: '🪑', aliases: ['seat belt', 'seatbelt'] },
-    {
-      key: 'reverse',
-      labelEn: 'Reverse Alarm / Lights',
-      labelAr: 'إنذار / إضاءة الرجوع',
-      icon: '🔊',
-      aliases: ['reverse', 'alarm'],
     },
     {
       key: 'indicators',
@@ -100,10 +62,13 @@ const PAPER_TEMPLATE: Record<GroupName, PaperTemplateItem[]> = {
       icon: '🚨',
       aliases: ['indicator', 'light'],
     },
-    { key: 'horn', labelEn: 'Horn', labelAr: 'البوري', icon: '📯', aliases: ['horn'] },
-  ],
-  'Operational Controls': [
-    { key: 'brakes', labelEn: 'Brakes', labelAr: 'الفرامل', icon: '🛑', aliases: ['brake'] },
+    {
+      key: 'tyres',
+      labelEn: 'Tyres / Wheel Condition',
+      labelAr: 'الإطارات / العجلات',
+      icon: '🛞',
+      aliases: ['tyre', 'tire', 'wheel'],
+    },
     { key: 'mirrors', labelEn: 'Mirrors', labelAr: 'المرايا', icon: '🪞', aliases: ['mirror'] },
     {
       key: 'load',
@@ -112,8 +77,71 @@ const PAPER_TEMPLATE: Record<GroupName, PaperTemplateItem[]> = {
       icon: '📦',
       aliases: ['load', 'restrain'],
     },
-    { key: 'speed', labelEn: 'Speed Limited', labelAr: 'محدد السرعة', icon: '🏁', aliases: ['speed'] },
+    {
+      key: 'reverse',
+      labelEn: 'Reverse Alarm / Lights',
+      labelAr: 'إنذار / إضاءة الرجوع',
+      icon: '🔊',
+      aliases: ['reverse', 'alarm'],
+    },
+  ],
+  'Fluids & Electrical': [
+    { key: 'battery', labelEn: 'Battery', labelAr: 'البطارية', icon: '🔋', aliases: ['battery'] },
+    { key: 'oil', labelEn: 'Oil (Level)', labelAr: 'مستوى الزيت', icon: '🛢️', aliases: ['oil'] },
+    { key: 'water', labelEn: 'Water (Level)', labelAr: 'مستوى الماء', icon: '💧', aliases: ['water', 'coolant'] },
+    { key: 'fuel', labelEn: 'Fuel', labelAr: 'الوقود', icon: '⛽', aliases: ['fuel'] },
+    {
+      key: 'fuse',
+      labelEn: 'First Aid Box / Fuse Box',
+      labelAr: 'صندوق الإسعافات / الفيوز',
+      icon: '🧰',
+      aliases: ['fuse box', 'fuse', 'electrical box'],
+    },
+  ],
+  'Safety & Emergency': [
+    {
+      key: 'first-aid',
+      labelEn: 'First Aid Box',
+      labelAr: 'الإسعافات الأولية',
+      icon: '🩹',
+      aliases: ['first aid', 'aid'],
+    },
+    {
+      key: 'extinguisher',
+      labelEn: 'Fire Extinguisher',
+      labelAr: 'طفاية الحريق',
+      icon: '🧯',
+      aliases: ['extinguisher'],
+    },
+    { key: 'seatbelt', labelEn: 'Seat Belt', labelAr: 'حزام الأمان', icon: '🪑', aliases: ['seat belt', 'seatbelt'] },
+    { key: 'horn', labelEn: 'Horn', labelAr: 'البوري', icon: '📯', aliases: ['horn'] },
+    { key: 'brakes', labelEn: 'Brakes', labelAr: 'الفرامل', icon: '🛑', aliases: ['brake'] },
+  ],
+  'Operational Controls': [
+    { key: 'speed', labelEn: 'Speed Limit Status', labelAr: 'حالة محدد السرعة', icon: '🏁', aliases: ['speed limit', 'speed'] },
     { key: 'measure', labelEn: 'Measuring Devices', labelAr: 'أجهزة القياس', icon: '📏', aliases: ['measure'] },
+    { key: 'tyre-pressure', labelEn: 'Tyre Pressure', labelAr: 'ضغط الإطارات', icon: '🛞', aliases: ['tyre pressure', 'tire pressure'] },
+    {
+      key: 'high-flag',
+      labelEn: 'High Flag Visibility',
+      labelAr: 'وضوح العلم العالي',
+      icon: '🚩',
+      aliases: ['high flag', 'flag visibility'],
+    },
+    {
+      key: 'plate-visible',
+      labelEn: 'Vehicle Plate Visibility',
+      labelAr: 'وضوح لوحة المركبة',
+      icon: '🔢',
+      aliases: ['plate visibility', 'plate number', 'vehicle plate'],
+    },
+    {
+      key: 'radio',
+      labelEn: 'Radio Tape Recorder',
+      labelAr: 'المسجل / الراديو',
+      icon: '📻',
+      aliases: ['radio', 'tape recorder'],
+    },
     {
       key: 'controls',
       labelEn: 'Operational Controls',
@@ -125,15 +153,15 @@ const PAPER_TEMPLATE: Record<GroupName, PaperTemplateItem[]> = {
   'Documentation & Tools': [
     {
       key: 'registration',
-      labelEn: 'Vehicle Registration',
-      labelAr: 'رخصة المركبة',
+      labelEn: 'Vehicle Registration Paper Status',
+      labelAr: 'حالة أوراق التسجيل',
       icon: '📄',
-      aliases: ['registration'],
+      aliases: ['registration', 'registration paper'],
     },
     { key: 'toolbox', labelEn: 'Toolbox', labelAr: 'صندوق الأدوات', icon: '🧰', aliases: ['toolbox'] },
-    { key: 'ras', labelEn: 'RAS Sticker', labelAr: 'ملصق RAS', icon: '🏷️', aliases: ['ras'] },
     { key: 'tools', labelEn: 'Tools', labelAr: 'الأدوات', icon: '🛠️', aliases: ['tool'] },
     { key: 'jack', labelEn: 'Jack Spanner', labelAr: 'الرافعة', icon: '🔧', aliases: ['jack', 'spanner'] },
+    { key: 'ras', labelEn: 'RAS Sticker', labelAr: 'ملصق RAS', icon: '🏷️', aliases: ['ras'] },
     {
       key: 'lock',
       labelEn: 'Safety Lock & Fittings',
@@ -287,12 +315,8 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
           : 'Not assigned',
       );
 
-      const isSmallScreen = window.matchMedia('(max-width: 560px)').matches;
       setExpandedGroups(
-        Object.fromEntries(GROUP_ORDER.map((group, index) => [group, isSmallScreen ? index === 0 : true])) as Record<
-          GroupName,
-          boolean
-        >,
+        Object.fromEntries(GROUP_ORDER.map((group, index) => [group, index === 0])) as Record<GroupName, boolean>,
       );
 
       const draft = window.localStorage.getItem(draftStorageKey(activeSubdomain));
@@ -746,7 +770,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
                     <h3>
                       {group} <span className="section-state-indicator">{sectionState}</span>
                     </h3>
-                    <span className="section-issues-badge">Issues: {summary.issues}</span>
+                    <span className="section-issues-badge">{summary.total} items • {summary.issues} issues</span>
                     <span>{expandedGroups[group] ? '−' : '+'}</span>
                   </button>
                     );
