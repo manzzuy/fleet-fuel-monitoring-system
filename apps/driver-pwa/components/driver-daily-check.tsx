@@ -21,6 +21,7 @@ import {
 } from '../lib/odometer-workflow';
 import { driverTokenKey } from '../lib/session';
 import { DriverShell } from './driver-shell';
+import { PaperChecklistRenderer } from '../../../packages/shared/ui/paper-checklist-renderer';
 
 interface DriverDailyCheckProps {
   host: string | null;
@@ -976,69 +977,19 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
               </label>
             </div>
 
-            <section className="paper-form" data-testid="driver-checklist-paper-form">
-              <div className="paper-grid">
-                {paperRows.map((row, rowIndex) => (
-                  <div
-                    className={`paper-row ${
-                      row.cells.length === 5 ? 'paper-row-five' : row.cells.length === 1 ? 'paper-row-one' : row.cells.length === 2 ? 'paper-row-two' : 'paper-row-three'
-                    }`}
-                    key={`paper-row-${rowIndex + 1}`}
-                  >
-                    {row.cells.map(({ item, uiKey }) => {
-                      const state = itemState[item.uiKey] ?? defaultItemState;
-                      const isIssue = state.status === 'ISSUE';
-                      return (
-                        <article
-                          className={`checklist-card paper-cell ${activeDefectKey === item.uiKey ? 'defect-source-active' : ''}`}
-                          data-testid={`driver-checklist-item-${item.uiKey}`}
-                          key={uiKey}
-                          ref={(element) => {
-                            cardRefs.current[item.uiKey] = element;
-                          }}
-                          tabIndex={-1}
-                        >
-                          <div className="checklist-item-label">
-                            <span className="checklist-item-icon" aria-hidden="true">
-                              {item.icon}
-                            </span>
-                            <p>
-                              <span className="checklist-item-label-en">
-                                {item.labelEn} {item.required ? <strong>(Required)</strong> : null}
-                              </span>
-                              <span className="checklist-item-label-ar">{item.labelAr}</span>
-                            </p>
-                          </div>
-
-                          <div className="paper-check-controls">
-                            <button
-                              aria-label="PASS"
-                              className={`paper-check pass ${state.status === 'PASS' ? 'active pass' : ''}`}
-                              data-testid={`driver-checklist-pass-${item.uiKey}`}
-                              disabled={!item.configured}
-                              onClick={() => setStatus(item.uiKey, 'PASS')}
-                              type="button"
-                            >
-                              <span aria-hidden="true">✓</span>
-                            </button>
-                            <button
-                              aria-label="ISSUE"
-                              className={`paper-check issue ${isIssue ? 'active issue' : ''}`}
-                              data-testid={`driver-checklist-issue-${item.uiKey}`}
-                              disabled={!item.configured}
-                              onClick={() => setStatus(item.uiKey, 'ISSUE')}
-                              type="button"
-                            >
-                              <span aria-hidden="true">✕</span>
-                            </button>
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </section>
+            <PaperChecklistRenderer
+              activeDefectKey={activeDefectKey}
+              cardRef={(uiKey, element) => {
+                cardRefs.current[uiKey] = element;
+              }}
+              mode="driver"
+              onPickStatus={setStatus}
+              rows={paperRows}
+              statuses={Object.fromEntries(
+                visibleChecklistItems.map((item) => [item.uiKey, (itemState[item.uiKey] ?? defaultItemState).status]),
+              )}
+              testIdPrefix="driver-checklist"
+            />
 
             <label className="field checklist-general-comment">
               <span>General comment (optional)</span>

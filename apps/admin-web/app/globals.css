@@ -649,6 +649,129 @@ dd {
   background: rgba(255, 255, 255, 0.72);
 }
 
+.paper-form {
+  border: 1px solid #1a1a1a;
+  background: #fff;
+  border-radius: 0;
+  padding: 0;
+}
+
+.paper-grid {
+  display: grid;
+  gap: 1px;
+  background: #111;
+}
+
+.paper-row {
+  display: grid;
+  gap: 1px;
+  background: #111;
+}
+
+.paper-row-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.paper-row-five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.paper-row-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.paper-row-one {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.paper-cell {
+  background: #fff;
+  border: 0;
+  border-radius: 0;
+  padding: 7px;
+  min-height: 98px;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.checklist-item-label {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 8px;
+  align-items: start;
+}
+
+.checklist-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.checklist-item-label-en,
+.checklist-item-label-ar {
+  display: block;
+  font-size: 12px;
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+.paper-check-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.paper-check {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #111;
+  background: #fff;
+  color: #111;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.paper-check.pass {
+  border-radius: 2px;
+}
+
+.paper-check.issue {
+  border-radius: 999px;
+}
+
+.paper-check.active.pass {
+  background: #e7f5eb;
+  border-color: #1f7a3d;
+  color: #1f7a3d;
+}
+
+.paper-check.active.issue {
+  background: #fdecea;
+  border-color: #9a351a;
+  color: #9a351a;
+}
+
+.paper-report-meta {
+  margin: 14px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.75);
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.paper-report-defects {
+  margin-top: 16px;
+}
+
 .checklist-item-head {
   display: flex;
   align-items: center;
@@ -742,6 +865,42 @@ dd {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media print {
+  body {
+    padding: 0;
+    background: #fff;
+  }
+
+  .tenant-layout,
+  .tenant-content {
+    display: block;
+  }
+
+  .tenant-sidebar,
+  .no-print {
+    display: none !important;
+  }
+
+  .card,
+  .print-report-card {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .paper-report-meta {
+    border-color: #000;
+    background: #fff;
+  }
+
+  a {
+    color: #000;
+    text-decoration: none;
   }
 }
 
