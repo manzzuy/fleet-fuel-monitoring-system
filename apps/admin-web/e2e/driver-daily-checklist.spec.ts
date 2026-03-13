@@ -39,7 +39,8 @@ async function firstInteractiveChecklistCard(page: Page) {
 async function fillChecklistOdometer(page: Page) {
   const previousText = (await page.getByTestId('driver-checklist-previous-odometer').textContent()) ?? '';
   const previousMatch = previousText.match(/(\d[\d,]*)\s*km/i);
-  const baseline = previousMatch ? Number(previousMatch[1].replace(/,/g, '')) : 0;
+  const baselineRaw = previousMatch?.[1] ?? '';
+  const baseline = baselineRaw ? Number(baselineRaw.replace(/,/g, '')) : 0;
   await page.getByTestId('driver-checklist-odometer').fill(String(Math.max(1, baseline + 1)));
 }
 

@@ -819,8 +819,12 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
       const check = await createDriverDailyCheck(host, token, {
         check_date: date,
         ...(selectedVehicleId ? { vehicle_id: selectedVehicleId } : {}),
+        odometer_km: Number(odometerKm),
+        odometer_fallback_used: false,
       });
       await submitDriverDailyCheck(host, token, check.id, { items: payloadItems });
+      const refreshedVehicles = await getDriverVehicles(host, token);
+      setVehicles(refreshedVehicles.items);
       setSuccess('Daily checklist submitted.');
       if (subdomain) {
         window.localStorage.removeItem(draftStorageKey(subdomain));

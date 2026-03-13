@@ -247,6 +247,8 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
         notes: draft.notes || undefined,
         receipt_url: draft.receiptUrl || undefined,
       });
+      const refreshedVehicles = await getDriverVehicles(host, token);
+      setVehicles(refreshedVehicles.items);
 
       setSuccess(`Fuel entry submitted (${response.entry.id}).`);
       setDraft((current) => ({

@@ -56,7 +56,7 @@ driverRouter.get(
     });
 
     const vehicleIds = rows.map((row) => row.id);
-    const latestOdometerByVehicle = new Map<string, number | null>();
+    const latestFuelOdometerByVehicle = new Map<string, { odometerKm: number | null; createdAt: Date }>();
     if (vehicleIds.length > 0) {
       const latestOdometerRows = await prisma.fuelEntry.findMany({
         where: {
@@ -64,24 +64,81 @@ driverRouter.get(
           vehicleId: { in: vehicleIds },
           odometerKm: { not: null },
         },
-        orderBy: [{ vehicleId: 'asc' }, { entryDate: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [{ vehicleId: 'asc' }, { createdAt: 'desc' }, { entryDate: 'desc' }],
         distinct: ['vehicleId'],
         select: {
           vehicleId: true,
           odometerKm: true,
+          createdAt: true,
         },
       });
       for (const odometerRow of latestOdometerRows) {
-        latestOdometerByVehicle.set(odometerRow.vehicleId, odometerRow.odometerKm);
+        latestFuelOdometerByVehicle.set(odometerRow.vehicleId, {
+          odometerKm: odometerRow.odometerKm,
+          createdAt: odometerRow.createdAt,
+        });
+      }
+    }
+
+    const latestChecklistOdometerByVehicle = new Map<string, { odometerKm: number; createdAt: Date }>();
+    if (vehicleIds.length > 0) {
+      const checklistOdometerRows = await prisma.auditLog.findMany({
+        where: {
+          tenantId: req.tenant!.id,
+          eventType: 'DRIVER_DAILY_CHECK_CREATED',
+        },
+        orderBy: [{ createdAt: 'desc' }],
+        select: {
+          metadata: true,
+          createdAt: true,
+        },
+        take: 500,
+      });
+
+      for (const row of checklistOdometerRows) {
+        const metadata = row.metadata;
+        if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+          continue;
+        }
+        const vehicleId = 'vehicle_id' in metadata ? metadata.vehicle_id : null;
+        const odometer = 'odometer_km' in metadata ? metadata.odometer_km : null;
+
+        if (typeof vehicleId !== 'string' || !vehicleIds.includes(vehicleId)) {
+          continue;
+        }
+        if (typeof odometer !== 'number') {
+          continue;
+        }
+        if (latestChecklistOdometerByVehicle.has(vehicleId)) {
+          continue;
+        }
+        latestChecklistOdometerByVehicle.set(vehicleId, { odometerKm: odometer, createdAt: row.createdAt });
       }
     }
 
     res.json({
       items: rows.map((row) => ({
+        ...(function resolvePreviousOdometer() {
+          const fromFuel = latestFuelOdometerByVehicle.get(row.id) ?? null;
+          const fromChecklist = latestChecklistOdometerByVehicle.get(row.id) ?? null;
+
+          if (!fromFuel && !fromChecklist) {
+            return { previous_odometer_km: null };
+          }
+          if (!fromFuel && fromChecklist) {
+            return { previous_odometer_km: fromChecklist.odometerKm };
+          }
+          if (fromFuel && !fromChecklist) {
+            return { previous_odometer_km: fromFuel.odometerKm ?? null };
+          }
+
+          const latest =
+            fromFuel!.createdAt >= fromChecklist!.createdAt ? fromFuel!.odometerKm ?? null : fromChecklist!.odometerKm;
+          return { previous_odometer_km: latest };
+        })(),
         id: row.id,
         fleet_no: row.fleetNumber,
         plate_no: row.plateNumber,
-        previous_odometer_km: latestOdometerByVehicle.get(row.id) ?? null,
       })),
       request_id: req.requestId,
     });

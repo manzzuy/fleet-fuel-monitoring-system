@@ -117,7 +117,7 @@ async function seedChecklistAndDriver(tenantId: string, username: string, employ
     },
   });
 
-  return { driverUser, itemCode };
+  return { driverUser, itemCode, vehicle };
 }
 
 describe('Driver daily checklist API', () => {
@@ -225,6 +225,72 @@ describe('Driver daily checklist API', () => {
       .set('host', 'drivercheckunauth.platform.test');
     expect(response.status).toBe(401);
     expect(response.body.error.code).toBe('missing_auth');
+  });
+
+  it('updates driver vehicle previous odometer from checklist then fuel submissions', async () => {
+    const tenant = await createTenant(app, 'driverodoupdate');
+    const { itemCode, vehicle } = await seedChecklistAndDriver(tenant.id, 'drvodo', 'EMP-ODO');
+
+    const login = await request(app).post('/auth/login').set('host', 'driverodoupdate.platform.test').send({
+      identifier: 'drvodo',
+      password: 'DriverPass123',
+    });
+    expect(login.status).toBe(200);
+
+    const before = await request(app)
+      .get('/tenanted/driver/vehicles')
+      .set('host', 'driverodoupdate.platform.test')
+      .set('authorization', `Bearer ${login.body.access_token}`);
+    expect(before.status).toBe(200);
+    expect(before.body.items.find((row: { id: string }) => row.id === vehicle.id)?.previous_odometer_km ?? null).toBeNull();
+
+    const createDailyCheck = await request(app)
+      .post('/tenanted/driver/daily-checks')
+      .set('host', 'driverodoupdate.platform.test')
+      .set('authorization', `Bearer ${login.body.access_token}`)
+      .send({
+        check_date: '2026-03-06',
+        vehicle_id: vehicle.id,
+        odometer_km: 12345,
+      });
+    expect(createDailyCheck.status).toBe(201);
+
+    const submitDailyCheck = await request(app)
+      .put(`/tenanted/driver/daily-checks/${createDailyCheck.body.id}/submit`)
+      .set('host', 'driverodoupdate.platform.test')
+      .set('authorization', `Bearer ${login.body.access_token}`)
+      .send({
+        items: [{ item_code: itemCode, status: 'OK' }],
+      });
+    expect(submitDailyCheck.status).toBe(200);
+
+    const afterChecklist = await request(app)
+      .get('/tenanted/driver/vehicles')
+      .set('host', 'driverodoupdate.platform.test')
+      .set('authorization', `Bearer ${login.body.access_token}`);
+    expect(afterChecklist.status).toBe(200);
+    expect(afterChecklist.body.items.find((row: { id: string }) => row.id === vehicle.id)?.previous_odometer_km).toBe(12345);
+
+    const createFuel = await request(app)
+      .post('/tenanted/driver/fuel-entries')
+      .set('host', 'driverodoupdate.platform.test')
+      .set('authorization', `Bearer ${login.body.access_token}`)
+      .send({
+        vehicle_id: vehicle.id,
+        entry_date: '2026-03-06',
+        odometer_km: 12444,
+        liters: 10,
+        source_type: 'station',
+        fuel_station_id: 'ODO-STATION',
+      });
+    expect(createFuel.status).toBe(201);
+
+    const afterFuel = await request(app)
+      .get('/tenanted/driver/vehicles')
+      .set('host', 'driverodoupdate.platform.test')
+      .set('authorization', `Bearer ${login.body.access_token}`);
+    expect(afterFuel.status).toBe(200);
+    expect(afterFuel.body.items.find((row: { id: string }) => row.id === vehicle.id)?.previous_odometer_km).toBe(12444);
   });
 
   it('rejects checklist routes for staff tokens', async () => {

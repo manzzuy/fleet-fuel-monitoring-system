@@ -173,6 +173,10 @@ export async function createDriverDailyCheckEntry(
         daily_check_id: created.id,
         status: created.status,
         check_date: payload.check_date,
+        vehicle_id: vehicleId,
+        odometer_km: typeof payload.odometer_km === 'number' ? payload.odometer_km : null,
+        odometer_fallback_used: payload.odometer_fallback_used ?? false,
+        odometer_fallback_reason: payload.odometer_fallback_reason ?? null,
       },
     },
   });

@@ -518,6 +518,9 @@ export const driverDashboardResponseSchema = z.object({
 export const createDriverDailyCheckRequestSchema = z.object({
   check_date: dateSchema,
   vehicle_id: uuidSchema.optional(),
+  odometer_km: z.coerce.number().int().min(0).optional(),
+  odometer_fallback_used: z.boolean().default(false),
+  odometer_fallback_reason: z.string().trim().min(3).max(500).optional(),
 });
 
 export const createDriverFuelEntryRequestSchema = z

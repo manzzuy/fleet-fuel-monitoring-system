@@ -30,7 +30,8 @@ test('driver can submit fuel entry and gets validation for missing approved-sour
   await page.getByTestId('driver-fuel-liters').fill('25');
   const previousText = (await page.getByTestId('driver-fuel-previous-odometer').textContent()) ?? '';
   const previousMatch = previousText.match(/(\d[\d,]*)\s*km/i);
-  const baseline = previousMatch ? Number(previousMatch[1].replace(/,/g, '')) : 0;
+  const baselineRaw = previousMatch?.[1] ?? '';
+  const baseline = baselineRaw ? Number(baselineRaw.replace(/,/g, '')) : 0;
   await page.getByTestId('driver-fuel-odometer').fill(String(Math.max(1, baseline + 1)));
   await page.getByTestId('driver-submit-fuel-entry').click();
   await expect(page.getByTestId('driver-fuel-error')).toContainText('Approved source context is required.');
