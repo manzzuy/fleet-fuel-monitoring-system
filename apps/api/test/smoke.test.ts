@@ -346,6 +346,55 @@ describe('API smoke tests', () => {
     });
   });
 
+  it('GET /tenanted/dashboard/summary reports missing daily checks from active vehicles without submitted checks', async () => {
+    await createPlatformOwner();
+
+    const platformLogin = await request(app).post('/auth/platform-login').send({
+      email: process.env.PLATFORM_OWNER_EMAIL,
+      password: process.env.PLATFORM_OWNER_PASSWORD,
+    });
+
+    const createTenantResponse = await request(app)
+      .post('/platform/tenants')
+      .set('authorization', `Bearer ${platformLogin.body.access_token}`)
+      .send({
+        tenantName: 'Missing Checks Fleet',
+        subdomain: 'missingchecks',
+        createInitialAdmin: true,
+        initialAdmin: {
+          email: 'admin@missingchecks.test',
+          username: 'missingadmin',
+          password: 'StrongPass123',
+          fullName: 'Missing Checks Admin',
+        },
+      });
+
+    await prisma.vehicle.create({
+      data: {
+        tenantId: createTenantResponse.body.id,
+        fleetNumber: 'MISSING-001',
+      },
+    });
+
+    const tenantLoginResponse = await request(app)
+      .post('/auth/login')
+      .set('host', 'missingchecks.platform.test')
+      .send({
+        identifier: 'missingadmin',
+        password: 'StrongPass123',
+      });
+
+    const response = await request(app)
+      .get('/tenanted/dashboard/summary')
+      .set('host', 'missingchecks.platform.test')
+      .set('authorization', `Bearer ${tenantLoginResponse.body.access_token}`);
+
+    expect(createTenantResponse.status).toBe(201);
+    expect(tenantLoginResponse.status).toBe(200);
+    expect(response.status).toBe(200);
+    expect(response.body.monitoring_summary.vehicles_missing_daily_check).toBe(1);
+  });
+
   it('GET tenant monitoring endpoints return tenant-scoped read models', async () => {
     await createPlatformOwner();
 

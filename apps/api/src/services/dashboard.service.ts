@@ -186,6 +186,8 @@ export async function getTenantDashboardSummary(
     recentFuelEntries,
     dailyChecksSubmittedToday,
     dailyChecksPendingToday,
+    activeVehiclesForMissingChecks,
+    submittedVehiclesToday,
     lastBatch,
   ] = await Promise.all([
       prisma.site.count({
@@ -314,6 +316,35 @@ export async function getTenantDashboardSummary(
           status: 'DRAFT',
         },
       }),
+      prisma.vehicle.findMany({
+        where: {
+          tenantId: tenant.id,
+          isActive: true,
+          ...(siteScopeFilter
+            ? {
+                siteId: siteScopeFilter,
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+        },
+      }),
+      prisma.dailyCheck.findMany({
+        where: {
+          tenantId: tenant.id,
+          ...dailyCheckScope,
+          checkDate: {
+            gte: startOfToday,
+            lt: endOfToday,
+          },
+          status: 'SUBMITTED',
+        },
+        select: {
+          vehicleId: true,
+        },
+        distinct: ['vehicleId'],
+      }),
       prisma.onboardingImportBatch.findFirst({
         where: { tenantId: tenant.id },
         orderBy: { createdAt: 'desc' },
@@ -325,6 +356,15 @@ export async function getTenantDashboardSummary(
         },
       }),
     ]);
+
+  const submittedVehicleIds = new Set(
+    submittedVehiclesToday
+      .map((row) => row.vehicleId)
+      .filter((value): value is string => Boolean(value)),
+  );
+  const vehiclesMissingDailyCheckToday = activeVehiclesForMissingChecks.filter(
+    (vehicle) => !submittedVehicleIds.has(vehicle.id),
+  ).length;
 
   const vehicles: DashboardRecentVehicle[] = recentVehicles.map((vehicle) => ({
     id: vehicle.id,
@@ -381,7 +421,7 @@ export async function getTenantDashboardSummary(
   );
 
   const monitoringSummary: DashboardMonitoringSummary = {
-    vehicles_missing_daily_check: alertsSummary.summary.vehicles_missing_daily_check,
+    vehicles_missing_daily_check: vehiclesMissingDailyCheckToday,
     high_risk_fuel_alerts: alertsSummary.items.filter((item) => HIGH_RISK_FUEL_ALERT_TYPES.has(item.alert_type)).length,
     compliance_expired: alertsSummary.items.filter((item) => item.alert_type === 'compliance_expired').length,
     compliance_expiring_soon: alertsSummary.items.filter((item) => item.alert_type === 'compliance_expiring_soon').length,

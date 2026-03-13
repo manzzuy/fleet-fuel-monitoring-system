@@ -938,28 +938,26 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
                   ))}
                 </select>
               </label>
-              <label className="field">
+            <label className="field">
                 <span>Odometer (km)</span>
-              <input
-                data-testid="driver-checklist-odometer"
-                inputMode="numeric"
-                min="0"
-                onChange={(event) => setOdometerKm(event.target.value)}
-                placeholder={hasPreviousOdometer ? undefined : 'Enter current reading'}
-                ref={odometerInputRef}
-                required
-                type="number"
-                value={odometerKm}
-              />
-              {hasPreviousOdometer ? (
-                <small className="field-hint" data-testid="driver-checklist-previous-odometer">
-                  {formatPreviousOdometer(previousOdometerKm)}
-                </small>
-              ) : (
-                <small className="field-hint" data-testid="driver-checklist-first-reading-hint">
-                  First reading for this vehicle
-                </small>
-              )}
+              <div className="odometer-input-wrap">
+                <input
+                  data-testid="driver-checklist-odometer"
+                  inputMode="numeric"
+                  min="0"
+                  onChange={(event) => setOdometerKm(event.target.value)}
+                  placeholder={hasPreviousOdometer ? 'Enter current reading' : 'Enter current reading'}
+                  ref={odometerInputRef}
+                  required
+                  type="number"
+                  value={odometerKm}
+                />
+                {hasPreviousOdometer ? (
+                  <span className="odometer-inline-meta" data-testid="driver-checklist-previous-odometer">
+                    {formatPreviousOdometer(previousOdometerKm)}
+                  </span>
+                ) : null}
+              </div>
                 {odometerValidationMessage ? (
                   <small className="status error" data-testid="driver-checklist-odometer-warning">
                     {odometerValidationMessage}

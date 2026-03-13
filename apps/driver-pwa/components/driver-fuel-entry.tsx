@@ -307,26 +307,24 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
             </label>
             <label className="field">
               <span>Odometer (km)</span>
-              <input
-                data-testid="driver-fuel-odometer"
-                inputMode="numeric"
-                min="0"
-                onChange={(event) => updateDraft({ odometerKm: event.target.value })}
-                placeholder={hasPreviousOdometer ? undefined : 'Enter current reading'}
-                ref={odometerInputRef}
-                required={!draft.odometerFallbackUsed}
-                type="number"
-                value={draft.odometerKm}
-              />
-              {hasPreviousOdometer ? (
-                <small className="field-hint" data-testid="driver-fuel-previous-odometer">
-                  {formatPreviousOdometer(previousOdometerKm)}
-                </small>
-              ) : (
-                <small className="field-hint" data-testid="driver-fuel-first-reading-hint">
-                  First reading for this vehicle
-                </small>
-              )}
+              <div className="odometer-input-wrap">
+                <input
+                  data-testid="driver-fuel-odometer"
+                  inputMode="numeric"
+                  min="0"
+                  onChange={(event) => updateDraft({ odometerKm: event.target.value })}
+                  placeholder="Enter current reading"
+                  ref={odometerInputRef}
+                  required={!draft.odometerFallbackUsed}
+                  type="number"
+                  value={draft.odometerKm}
+                />
+                {hasPreviousOdometer ? (
+                  <span className="odometer-inline-meta" data-testid="driver-fuel-previous-odometer">
+                    {formatPreviousOdometer(previousOdometerKm)}
+                  </span>
+                ) : null}
+              </div>
               {odometerValidationMessage ? (
                 <small className="status error" data-testid="driver-fuel-odometer-warning">
                   {odometerValidationMessage}
