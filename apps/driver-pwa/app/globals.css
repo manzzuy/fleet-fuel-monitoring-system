@@ -576,6 +576,16 @@ ul {
   gap: 8px;
 }
 
+.inline-defect-fields .field {
+  min-width: 0;
+}
+
+.inline-defect-fields input[type='file'] {
+  width: 100%;
+  min-width: 0;
+  font-size: 12px;
+}
+
 .paper-check-controls {
   display: flex;
   justify-content: flex-end;
