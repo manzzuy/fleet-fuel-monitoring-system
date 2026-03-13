@@ -446,7 +446,6 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
   const [assignedVehicleLabel, setAssignedVehicleLabel] = useState<string>('Not assigned');
   const [assignedSiteLabel, setAssignedSiteLabel] = useState<string>('Not assigned');
   const [pendingPhotos, setPendingPhotos] = useState<Record<string, File>>({});
-  const [activeDefectKey, setActiveDefectKey] = useState<string | null>(null);
   const [generalComment, setGeneralComment] = useState<string>('');
   const [odometerKm, setOdometerKm] = useState<string>('');
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -610,10 +609,6 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
     }
     return map;
   }, [allUiItems]);
-  const activeDefectItem = useMemo(
-    () => (activeDefectKey ? uiItemByKey.get(activeDefectKey) ?? null : null),
-    [activeDefectKey, uiItemByKey],
-  );
   const paperRows = useMemo(
     () =>
       PAPER_ROW_LAYOUT.map((row) => ({
@@ -688,22 +683,9 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
       [uiKey]: {
         ...current,
         status,
-        ...(status === 'PASS' ? { notes: '', photoName: '', severity: 'low' as const } : {}),
       },
     };
-    if (status === 'PASS') {
-      setPendingPhotos((currentPhotos) => {
-        const nextPhotos = { ...currentPhotos };
-        delete nextPhotos[uiKey];
-        return nextPhotos;
-      });
-    }
     saveDraft(next);
-    if (status === 'ISSUE') {
-      setActiveDefectKey(uiKey);
-    } else if (activeDefectKey === uiKey) {
-      setActiveDefectKey(null);
-    }
 
     if (status === 'PASS' && nextUnansweredConfiguredItem) {
       requestAnimationFrame(() => {
@@ -711,34 +693,6 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
         nextElement?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       });
     }
-  }
-
-  function closeDefectSheet(sourceUiKey: string | null) {
-    setActiveDefectKey(null);
-    if (!sourceUiKey) {
-      return;
-    }
-    requestAnimationFrame(() => {
-      const sourceCell = cardRefs.current[sourceUiKey];
-      sourceCell?.focus();
-      sourceCell?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
-  }
-
-  function saveDefect(uiKey: string, notes: string, severity: 'low' | 'high', photoName: string) {
-    const current = itemState[uiKey] ?? defaultItemState;
-    const next = {
-      ...itemState,
-      [uiKey]: {
-        ...current,
-        status: 'ISSUE' as const,
-        notes,
-        severity,
-        photoName,
-      },
-    };
-    saveDraft(next);
-    closeDefectSheet(uiKey);
   }
 
   function setNotes(uiKey: string, notes: string) {
@@ -760,6 +714,18 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
       [uiKey]: {
         ...current,
         photoName,
+      },
+    };
+    saveDraft(next);
+  }
+
+  function setSeverity(uiKey: string, severity: 'low' | 'high') {
+    const current = itemState[uiKey] ?? defaultItemState;
+    const next = {
+      ...itemState,
+      [uiKey]: {
+        ...current,
+        severity,
       },
     };
     saveDraft(next);
@@ -978,12 +944,55 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
             </div>
 
             <PaperChecklistRenderer
-              activeDefectKey={activeDefectKey}
               cardRef={(uiKey, element) => {
                 cardRefs.current[uiKey] = element;
               }}
               mode="driver"
               onPickStatus={setStatus}
+              renderIssueDetails={(uiKey) => (
+                <div className="inline-defect-fields">
+                  <label className="field">
+                    <span>Issue note (optional)</span>
+                    <input
+                      data-testid={`driver-checklist-issue-note-${uiKey}`}
+                      onChange={(event) => setNotes(uiKey, event.target.value)}
+                      placeholder="Short issue note"
+                      type="text"
+                      value={(itemState[uiKey] ?? defaultItemState).notes}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Severity (optional)</span>
+                    <select
+                      data-testid={`driver-checklist-issue-severity-${uiKey}`}
+                      onChange={(event) => setSeverity(uiKey, event.target.value === 'high' ? 'high' : 'low')}
+                      value={(itemState[uiKey] ?? defaultItemState).severity}
+                    >
+                      <option value="low">Monitor</option>
+                      <option value="high">Critical</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Issue photo (optional)</span>
+                    <input
+                      accept="image/*"
+                      capture="environment"
+                      data-testid={`driver-checklist-issue-photo-${uiKey}`}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) {
+                          setPendingPhotos((currentPhotos) => ({ ...currentPhotos, [uiKey]: file }));
+                          setPhoto(uiKey, file.name);
+                        }
+                      }}
+                      type="file"
+                    />
+                  </label>
+                  {(itemState[uiKey] ?? defaultItemState).photoName ? (
+                    <p className="status">📷 {(itemState[uiKey] ?? defaultItemState).photoName}</p>
+                  ) : null}
+                </div>
+              )}
               rows={paperRows}
               statuses={Object.fromEntries(
                 visibleChecklistItems.map((item) => [item.uiKey, (itemState[item.uiKey] ?? defaultItemState).status]),
@@ -1002,100 +1011,6 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
                 value={generalComment}
               />
             </label>
-
-            {activeDefectKey ? (
-              <div
-                className="defect-sheet-overlay"
-                data-testid="driver-checklist-defect-overlay"
-                onClick={() => closeDefectSheet(activeDefectKey)}
-                role="presentation"
-              >
-                <div className="defect-sheet" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
-                  <div className="defect-sheet-header">
-                    <div className="defect-sheet-item" data-testid="driver-checklist-defect-item-context">
-                      <span aria-hidden="true" className="checklist-item-icon">
-                        {activeDefectItem?.icon ?? '📌'}
-                      </span>
-                      <div className="defect-sheet-item-text">
-                        <h3>Report Defect</h3>
-                        <p className="status">
-                          {activeDefectItem?.labelEn ?? 'Checklist item'}
-                          {activeDefectItem?.labelAr ? ` • ${activeDefectItem.labelAr}` : ''}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <label className="field">
-                    <span>Issue note</span>
-                    <input
-                      data-testid={`driver-checklist-issue-note-${activeDefectKey}`}
-                      onChange={(event) => setNotes(activeDefectKey, event.target.value)}
-                      placeholder="Short issue note"
-                      type="text"
-                      value={(itemState[activeDefectKey] ?? defaultItemState).notes}
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Severity</span>
-                    <select
-                      data-testid={`driver-checklist-issue-severity-${activeDefectKey}`}
-                      onChange={(event) =>
-                        saveDraft({
-                          ...itemState,
-                          [activeDefectKey]: {
-                            ...(itemState[activeDefectKey] ?? defaultItemState),
-                            status: 'ISSUE',
-                            severity: event.target.value === 'high' ? 'high' : 'low',
-                          },
-                        })
-                      }
-                      value={(itemState[activeDefectKey] ?? defaultItemState).severity}
-                    >
-                      <option value="low">Monitor</option>
-                      <option value="high">Critical</option>
-                    </select>
-                  </label>
-                  <label className="field">
-                    <span>Issue photo</span>
-                    <input
-                      accept="image/*"
-                      capture="environment"
-                      data-testid={`driver-checklist-issue-photo-${activeDefectKey}`}
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) {
-                          setPendingPhotos((currentPhotos) => ({ ...currentPhotos, [activeDefectKey]: file }));
-                          setPhoto(activeDefectKey, file.name);
-                        }
-                      }}
-                      type="file"
-                    />
-                  </label>
-                  {(itemState[activeDefectKey] ?? defaultItemState).photoName ? (
-                    <p className="status">📷 {(itemState[activeDefectKey] ?? defaultItemState).photoName}</p>
-                  ) : null}
-                  <div className="defect-sheet-actions">
-                    <button className="button ghost" onClick={() => closeDefectSheet(activeDefectKey)} type="button">
-                      Cancel
-                    </button>
-                    <button
-                      className="button"
-                      onClick={() =>
-                        saveDefect(
-                          activeDefectKey,
-                          (itemState[activeDefectKey] ?? defaultItemState).notes,
-                          (itemState[activeDefectKey] ?? defaultItemState).severity,
-                          (itemState[activeDefectKey] ?? defaultItemState).photoName,
-                        )
-                      }
-                      type="button"
-                    >
-                      Save defect
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
 
             <div className="checklist-sticky-submit" data-testid="driver-checklist-sticky-submit">
               <div className="checklist-sticky-submit-meta">

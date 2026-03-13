@@ -275,6 +275,7 @@ export interface PaperChecklistRendererProps {
   testIdPrefix?: string;
   onPickStatus?: (uiKey: string, status: Exclude<PaperUiStatus, null>) => void;
   cardRef?: (uiKey: string, element: HTMLElement | null) => void;
+  renderIssueDetails?: (uiKey: string, item: PaperChecklistItem) => JSX.Element | null;
 }
 
 export function PaperChecklistRenderer({
@@ -285,6 +286,7 @@ export function PaperChecklistRenderer({
   testIdPrefix = 'checklist',
   onPickStatus,
   cardRef,
+  renderIssueDetails,
 }: PaperChecklistRendererProps) {
   const readOnly = mode !== 'driver';
   return (
@@ -363,6 +365,11 @@ export function PaperChecklistRenderer({
                       </>
                     )}
                   </div>
+                  {status === 'ISSUE' && renderIssueDetails ? (
+                    <div className="inline-defect-panel" data-testid={`${testIdPrefix}-inline-defect-${item.uiKey}`}>
+                      {renderIssueDetails(item.uiKey, item)}
+                    </div>
+                  ) : null}
                 </article>
               );
             })}

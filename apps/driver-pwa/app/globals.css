@@ -564,6 +564,18 @@ ul {
   animation: issue-expand 180ms ease;
 }
 
+.inline-defect-panel {
+  margin-top: 6px;
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+  animation: inline-defect-expand 220ms ease;
+}
+
+.inline-defect-fields {
+  display: grid;
+  gap: 8px;
+}
+
 .paper-check-controls {
   display: flex;
   justify-content: flex-end;
@@ -587,6 +599,19 @@ ul {
   to {
     transform: translateY(0);
     opacity: 1;
+  }
+}
+
+@keyframes inline-defect-expand {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    max-height: 420px;
+    transform: translateY(0);
   }
 }
 

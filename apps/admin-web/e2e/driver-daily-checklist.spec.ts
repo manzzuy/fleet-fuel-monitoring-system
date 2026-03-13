@@ -44,17 +44,17 @@ async function fillChecklistOdometer(page: Page) {
   await odometerInput.fill(String(Math.max(1, baseline + 1)));
 }
 
-test('driver checklist issue interaction shows and hides issue-only fields', async ({ page }) => {
+test('driver checklist issue interaction shows and hides inline issue-only fields', async ({ page }) => {
   await loginAndOpenChecklist(page);
 
   const item = await firstInteractiveChecklistCard(page);
   await item.getByRole('button', { name: /ISSUE/i }).click();
 
-  const issueNote = page.locator('[data-testid^="driver-checklist-issue-note-"]');
+  const issueNote = item.locator('[data-testid^="driver-checklist-issue-note-"]');
   await expect(issueNote).toBeVisible();
   await issueNote.fill('Mirror cracked');
 
-  const photoInput = page.locator('[data-testid^="driver-checklist-issue-photo-"]');
+  const photoInput = item.locator('[data-testid^="driver-checklist-issue-photo-"]');
   await photoInput.setInputFiles({
     name: 'issue.jpg',
     mimeType: 'image/jpeg',
@@ -62,10 +62,8 @@ test('driver checklist issue interaction shows and hides issue-only fields', asy
   });
   await expect(page.getByText('issue.jpg')).toBeVisible();
 
-  await page.getByRole('button', { name: /save defect/i }).click();
-
   await item.getByRole('button', { name: /PASS/i }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(item.locator('[data-testid^="driver-checklist-issue-note-"]')).toHaveCount(0);
 });
 
 test('driver checklist validates required completion and restores saved draft', async ({ page }) => {
@@ -76,15 +74,14 @@ test('driver checklist validates required completion and restores saved draft', 
 
   const item = await firstInteractiveChecklistCard(page);
   await item.getByRole('button', { name: /ISSUE/i }).click();
-  const issueNote = page.locator('[data-testid^="driver-checklist-issue-note-"]');
+  const issueNote = item.locator('[data-testid^="driver-checklist-issue-note-"]');
   await issueNote.fill('Draft restore note');
-  await page.getByRole('button', { name: /save defect/i }).click();
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.getByTestId('driver-checklist-draft-restored')).toBeVisible();
   const restoredItem = await firstInteractiveChecklistCard(page);
   await restoredItem.getByRole('button', { name: /ISSUE/i }).click();
-  await expect(page.locator('[data-testid^="driver-checklist-issue-note-"]').first()).toHaveValue('Draft restore note');
+  await expect(restoredItem.locator('[data-testid^="driver-checklist-issue-note-"]').first()).toHaveValue('Draft restore note');
 });
 
 test('driver checklist allows ISSUE without notes or photo and still submits', async ({ page }) => {
@@ -92,9 +89,7 @@ test('driver checklist allows ISSUE without notes or photo and still submits', a
 
   const item = await firstInteractiveChecklistCard(page);
   await item.getByRole('button', { name: /ISSUE/i }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await page.getByRole('button', { name: /cancel/i }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(item.locator('[data-testid^="driver-checklist-issue-note-"]')).toBeVisible();
 
   await page.getByTestId('driver-checklist-pass-Mechanical & Exterior:indicators').click();
   await page.getByTestId('driver-checklist-pass-Mechanical & Exterior:tyres').click();
