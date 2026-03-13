@@ -609,6 +609,10 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
     }
     return map;
   }, [allUiItems]);
+  const activeDefectItem = useMemo(
+    () => (activeDefectKey ? uiItemByKey.get(activeDefectKey) ?? null : null),
+    [activeDefectKey, uiItemByKey],
+  );
   const paperRows = useMemo(
     () =>
       PAPER_ROW_LAYOUT.map((row) => ({
@@ -708,6 +712,18 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
     }
   }
 
+  function closeDefectSheet(sourceUiKey: string | null) {
+    setActiveDefectKey(null);
+    if (!sourceUiKey) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      const sourceCell = cardRefs.current[sourceUiKey];
+      sourceCell?.focus();
+      sourceCell?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
+
   function saveDefect(uiKey: string, notes: string, severity: 'low' | 'high', photoName: string) {
     const current = itemState[uiKey] ?? defaultItemState;
     const next = {
@@ -721,7 +737,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
       },
     };
     saveDraft(next);
-    setActiveDefectKey(null);
+    closeDefectSheet(uiKey);
   }
 
   function setNotes(uiKey: string, notes: string) {
@@ -974,12 +990,13 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
                       const isIssue = state.status === 'ISSUE';
                       return (
                         <article
-                          className="checklist-card paper-cell"
+                          className={`checklist-card paper-cell ${activeDefectKey === item.uiKey ? 'defect-source-active' : ''}`}
                           data-testid={`driver-checklist-item-${item.uiKey}`}
                           key={uiKey}
                           ref={(element) => {
                             cardRefs.current[item.uiKey] = element;
                           }}
+                          tabIndex={-1}
                         >
                           <div className="checklist-item-label">
                             <span className="checklist-item-icon" aria-hidden="true">
@@ -1036,12 +1053,27 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
             </label>
 
             {activeDefectKey ? (
-              <div className="defect-sheet-overlay" onClick={() => setActiveDefectKey(null)} role="presentation">
+              <div
+                className="defect-sheet-overlay"
+                data-testid="driver-checklist-defect-overlay"
+                onClick={() => closeDefectSheet(activeDefectKey)}
+                role="presentation"
+              >
                 <div className="defect-sheet" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
-                  <h3>Report Defect</h3>
-                  <p className="status">
-                    {(allUiItems.find((item) => item.uiKey === activeDefectKey)?.labelEn ?? 'Checklist item')}
-                  </p>
+                  <div className="defect-sheet-header">
+                    <div className="defect-sheet-item" data-testid="driver-checklist-defect-item-context">
+                      <span aria-hidden="true" className="checklist-item-icon">
+                        {activeDefectItem?.icon ?? '📌'}
+                      </span>
+                      <div className="defect-sheet-item-text">
+                        <h3>Report Defect</h3>
+                        <p className="status">
+                          {activeDefectItem?.labelEn ?? 'Checklist item'}
+                          {activeDefectItem?.labelAr ? ` • ${activeDefectItem.labelAr}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                   <label className="field">
                     <span>Issue note</span>
                     <input
@@ -1092,7 +1124,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
                     <p className="status">📷 {(itemState[activeDefectKey] ?? defaultItemState).photoName}</p>
                   ) : null}
                   <div className="defect-sheet-actions">
-                    <button className="button ghost" onClick={() => setActiveDefectKey(null)} type="button">
+                    <button className="button ghost" onClick={() => closeDefectSheet(activeDefectKey)} type="button">
                       Cancel
                     </button>
                     <button
