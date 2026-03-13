@@ -258,24 +258,6 @@ ul {
   position: relative;
 }
 
-.odometer-input-wrap input {
-  padding-right: 132px;
-}
-
-.odometer-inline-meta {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 11px;
-  color: var(--muted);
-  pointer-events: none;
-  white-space: nowrap;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .field input,
 .field select,
 .field textarea,

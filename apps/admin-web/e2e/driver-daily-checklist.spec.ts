@@ -37,11 +37,11 @@ async function firstInteractiveChecklistCard(page: Page) {
 }
 
 async function fillChecklistOdometer(page: Page) {
-  const previousText = (await page.getByTestId('driver-checklist-previous-odometer').textContent()) ?? '';
-  const previousMatch = previousText.match(/(\d[\d,]*)\s*km/i);
-  const baselineRaw = previousMatch?.[1] ?? '';
+  const odometerInput = page.getByTestId('driver-checklist-odometer');
+  const placeholder = (await odometerInput.getAttribute('placeholder')) ?? '';
+  const baselineRaw = /^\d[\d,]*$/.test(placeholder) ? placeholder : '';
   const baseline = baselineRaw ? Number(baselineRaw.replace(/,/g, '')) : 0;
-  await page.getByTestId('driver-checklist-odometer').fill(String(Math.max(1, baseline + 1)));
+  await odometerInput.fill(String(Math.max(1, baseline + 1)));
 }
 
 test('driver checklist issue interaction shows and hides issue-only fields', async ({ page }) => {
@@ -119,7 +119,7 @@ test('driver checklist paper ux keeps progress and mobile-safe layout', async ({
   await expect(page.getByTestId('driver-checklist-progress-header')).toBeVisible();
   await expect(page.getByTestId('driver-checklist-sticky-submit')).toBeVisible();
   await expect(page.getByTestId('driver-checklist-vehicle-odometer-row')).toBeVisible();
-  await expect(page.getByTestId('driver-checklist-previous-odometer')).toContainText('Previous:');
+  await expect(page.getByTestId('driver-checklist-odometer')).toHaveAttribute('placeholder', /\S+/);
 
   const items = page.locator('[data-testid^="driver-checklist-item-"]');
   const beforeCount = await items.count();

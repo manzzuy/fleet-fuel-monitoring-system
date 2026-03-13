@@ -11,7 +11,7 @@ import {
   uploadDriverReceipt,
 } from '../lib/api';
 import {
-  formatPreviousOdometer,
+  getOdometerInputPlaceholder,
   getPreviousOdometerKm,
   validateOdometerAgainstPrevious,
 } from '../lib/odometer-workflow';
@@ -145,7 +145,6 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
     () => getPreviousOdometerKm(vehicles, draft.vehicleId),
     [draft.vehicleId, vehicles],
   );
-  const hasPreviousOdometer = previousOdometerKm !== null;
   const odometerValidationMessage = useMemo(() => {
     if (draft.odometerFallbackUsed) {
       return null;
@@ -313,17 +312,12 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
                   inputMode="numeric"
                   min="0"
                   onChange={(event) => updateDraft({ odometerKm: event.target.value })}
-                  placeholder="Enter current reading"
+                  placeholder={getOdometerInputPlaceholder(previousOdometerKm)}
                   ref={odometerInputRef}
                   required={!draft.odometerFallbackUsed}
                   type="number"
                   value={draft.odometerKm}
                 />
-                {hasPreviousOdometer ? (
-                  <span className="odometer-inline-meta" data-testid="driver-fuel-previous-odometer">
-                    {formatPreviousOdometer(previousOdometerKm)}
-                  </span>
-                ) : null}
               </div>
               {odometerValidationMessage ? (
                 <small className="status error" data-testid="driver-fuel-odometer-warning">

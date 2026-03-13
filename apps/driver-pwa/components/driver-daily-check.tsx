@@ -15,7 +15,7 @@ import {
   uploadDriverReceipt,
 } from '../lib/api';
 import {
-  formatPreviousOdometer,
+  getOdometerInputPlaceholder,
   getPreviousOdometerKm,
   validateOdometerAgainstPrevious,
 } from '../lib/odometer-workflow';
@@ -655,7 +655,6 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
     () => getPreviousOdometerKm(vehicles, selectedVehicleId),
     [selectedVehicleId, vehicles],
   );
-  const hasPreviousOdometer = previousOdometerKm !== null;
   const odometerValidationMessage = useMemo(() => {
     if (!odometerKm.trim()) {
       return null;
@@ -946,17 +945,12 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
                   inputMode="numeric"
                   min="0"
                   onChange={(event) => setOdometerKm(event.target.value)}
-                  placeholder={hasPreviousOdometer ? 'Enter current reading' : 'Enter current reading'}
+                  placeholder={getOdometerInputPlaceholder(previousOdometerKm)}
                   ref={odometerInputRef}
                   required
                   type="number"
                   value={odometerKm}
                 />
-                {hasPreviousOdometer ? (
-                  <span className="odometer-inline-meta" data-testid="driver-checklist-previous-odometer">
-                    {formatPreviousOdometer(previousOdometerKm)}
-                  </span>
-                ) : null}
               </div>
                 {odometerValidationMessage ? (
                   <small className="status error" data-testid="driver-checklist-odometer-warning">
