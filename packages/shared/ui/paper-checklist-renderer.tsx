@@ -278,6 +278,27 @@ export interface PaperChecklistRendererProps {
   renderIssueDetails?: (uiKey: string, item: PaperChecklistItem) => JSX.Element | null;
 }
 
+const CROPPED_ICON_SOURCES = new Set<string>([
+  '/checklist-icons/air-conditioner.svg',
+  '/checklist-icons/battery.svg',
+  '/checklist-icons/brakes.svg',
+  '/checklist-icons/fire-extinguisher.svg',
+  '/checklist-icons/first-aid-box.svg',
+  '/checklist-icons/fuel.svg',
+  '/checklist-icons/load-restraint.svg',
+  '/checklist-icons/mirrors.svg',
+  '/checklist-icons/oil.svg',
+  '/checklist-icons/radio.svg',
+  '/checklist-icons/reverse-alarm.svg',
+  '/checklist-icons/seat-belt.svg',
+  '/checklist-icons/speed-limiter.svg',
+  '/checklist-icons/tools.svg',
+  '/checklist-icons/tyres-wheel-fixing.svg',
+  '/checklist-icons/vehicle-registration-paper.svg',
+  '/checklist-icons/water-level.svg',
+  '/checklist-icons/wipers-windscreen.svg',
+]);
+
 export function PaperChecklistRenderer({
   mode,
   rows,
@@ -289,7 +310,7 @@ export function PaperChecklistRenderer({
   renderIssueDetails,
 }: PaperChecklistRendererProps) {
   const readOnly = mode !== 'driver';
-  const iconSize = mode === 'driver' ? 28 : mode === 'admin' ? 22 : 20;
+  const iconSize = mode === 'driver' ? 48 : mode === 'admin' ? 24 : 20;
   return (
     <section className="paper-form" data-testid={`${testIdPrefix}-paper-form`}>
       <div className="paper-grid">
@@ -322,14 +343,24 @@ export function PaperChecklistRenderer({
                   <div className="checklist-item-label">
                     <span className="checklist-item-icon" aria-hidden="true">
                       {item.icon.startsWith('/checklist-icons/') ? (
+                        (() => {
+                          const cropped = CROPPED_ICON_SOURCES.has(item.icon);
+                          return (
                         <img
                           alt=""
                           height={iconSize}
                           loading="lazy"
                           src={item.icon}
-                          style={{ width: `${iconSize}px`, height: `${iconSize}px`, objectFit: 'contain' }}
+                          style={{
+                            width: `${iconSize}px`,
+                            height: `${iconSize}px`,
+                            objectFit: cropped ? 'cover' : 'contain',
+                            objectPosition: cropped ? 'left top' : 'center',
+                          }}
                           width={iconSize}
                         />
+                          );
+                        })()
                       ) : (
                         item.icon
                       )}
