@@ -139,20 +139,32 @@ const PAPER_TEMPLATE: Record<GroupName, PaperTemplateItem[]> = {
   ],
   'Operational Controls': [
     { key: 'speed', labelEn: 'Speed Limit Status', labelAr: 'حالة محدد السرعة', icon: '/checklist-icons/speed-limiter.svg', aliases: ['speed limit', 'speed'] },
-    { key: 'measure', labelEn: 'Measuring Devices', labelAr: 'أجهزة القياس', icon: '/checklist-icons/measuring-devices.svg', aliases: ['measure'] },
-    { key: 'tyre-pressure', labelEn: 'Tyre Pressure', labelAr: 'ضغط الإطارات', icon: '/checklist-icons/tyre-pressure.svg', aliases: ['tyre pressure', 'tire pressure'] },
+    {
+      key: 'measure',
+      labelEn: 'Measuring Devices',
+      labelAr: 'أجهزة القياس',
+      icon: '/checklist-icons/measuring-devices.svg?v=20260318-1',
+      aliases: ['measure'],
+    },
+    {
+      key: 'tyre-pressure',
+      labelEn: 'Tyre Pressure',
+      labelAr: 'ضغط الإطارات',
+      icon: '/checklist-icons/tyre-pressure.svg?v=20260318-1',
+      aliases: ['tyre pressure', 'tire pressure'],
+    },
     {
       key: 'high-flag',
       labelEn: 'High Flag Visibility',
       labelAr: 'وضوح العلم العالي',
-      icon: '/checklist-icons/high-flag.svg',
+      icon: '/checklist-icons/high-flag.svg?v=20260318-1',
       aliases: ['high flag', 'flag visibility'],
     },
     {
       key: 'plate-visible',
       labelEn: 'Vehicle Plate Visibility',
       labelAr: 'وضوح لوحة المركبة',
-      icon: '/checklist-icons/plate-visible.svg',
+      icon: '/checklist-icons/plate-visible.svg?v=20260318-1',
       aliases: ['plate visibility', 'plate number', 'vehicle plate'],
     },
     {
@@ -186,7 +198,7 @@ const PAPER_TEMPLATE: Record<GroupName, PaperTemplateItem[]> = {
       key: 'lock',
       labelEn: 'Safety Lock & Fittings',
       labelAr: 'قفل وتجهيزات الأمان',
-      icon: '/checklist-icons/safety-lock-fittings.svg',
+      icon: '/checklist-icons/safety-lock-fittings.svg?v=20260318-1',
       aliases: ['lock', 'fitting'],
     },
     {
