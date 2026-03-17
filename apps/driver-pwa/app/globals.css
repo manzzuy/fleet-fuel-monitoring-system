@@ -479,6 +479,7 @@ ul {
   display: block;
   max-width: none;
   max-height: none;
+  image-rendering: auto;
 }
 
 .section-toggle {

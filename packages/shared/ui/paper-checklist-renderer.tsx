@@ -350,7 +350,6 @@ export function PaperChecklistRenderer({
                         <img
                           alt=""
                           height={iconSize}
-                          loading="lazy"
                           src={`${item.icon}?v=${CHECKLIST_ICON_ASSET_VERSION}`}
                           style={{
                             width: `${iconSize}px`,
