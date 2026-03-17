@@ -298,6 +298,7 @@ const CROPPED_ICON_SOURCES = new Set<string>([
   '/checklist-icons/water-level.svg',
   '/checklist-icons/wipers-windscreen.svg',
 ]);
+const CHECKLIST_ICON_ASSET_VERSION = '20260318-1';
 
 export function PaperChecklistRenderer({
   mode,
@@ -350,7 +351,7 @@ export function PaperChecklistRenderer({
                           alt=""
                           height={iconSize}
                           loading="lazy"
-                          src={item.icon}
+                          src={`${item.icon}?v=${CHECKLIST_ICON_ASSET_VERSION}`}
                           style={{
                             width: `${iconSize}px`,
                             height: `${iconSize}px`,
