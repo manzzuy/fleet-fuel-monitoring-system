@@ -1,0 +1,43 @@
+{
+  "driver_render_size_px": 28,
+  "admin_render_size_px": 22,
+  "print_render_size_px": 20,
+  "item_code_to_icon": {
+    "body": "body.svg",
+    "steering": "steering.svg",
+    "mirrors": "mirrors.svg",
+    "wipers": "wipers-windscreen.svg",
+    "indicators": "indicators.svg",
+    "tyres": "tyres-wheel-fixing.svg",
+    "load": "load-restraint.svg",
+    "reverse": "reverse-alarm.svg",
+    "battery": "battery.svg",
+    "oil": "oil.svg",
+    "water": "water-level.svg",
+    "fuel": "fuel.svg",
+    "fuse": "tools.svg",
+    "first-aid": "first-aid-box.svg",
+    "extinguisher": "fire-extinguisher.svg",
+    "seatbelt": "seat-belt.svg",
+    "horn": "horn.svg",
+    "brakes": "brakes.svg",
+    "speed": "speed-limiter.svg",
+    "measure": "measuring-devices.svg",
+    "tyre-pressure": "tyre-pressure.svg",
+    "high-flag": "high-flag.svg",
+    "plate-visible": "plate-visible.svg",
+    "radio": "radio.svg",
+    "controls": "radio.svg",
+    "registration": "vehicle-registration-paper.svg",
+    "toolbox": "tools.svg",
+    "tools": "tools.svg",
+    "jack": "jack.svg",
+    "ras": "ras-sticker.svg",
+    "lock": "safety-lock-fittings.svg",
+    "aircon": "air-conditioner.svg"
+  },
+  "notes": {
+    "fuse": "Mapped to tools.svg as temporary fallback until dedicated fuse-box icon is prepared.",
+    "controls": "Mapped to radio.svg fallback because the paper row layout currently does not render this key directly."
+  }
+}

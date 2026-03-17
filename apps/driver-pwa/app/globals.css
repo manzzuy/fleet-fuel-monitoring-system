@@ -464,6 +464,14 @@ ul {
 .checklist-item-icon {
   font-size: 16px;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.checklist-item-icon img {
+  display: block;
 }
 
 .section-toggle {
