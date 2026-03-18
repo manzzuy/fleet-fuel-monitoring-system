@@ -19,11 +19,16 @@ import {
   setOnboardingBatchUploadPath,
 } from '../services/onboarding.service';
 import { createTenant, listTenants } from '../services/platform-tenant.service';
+import { askOperatorAssistant } from '../services/operator-assistant.service';
 import { AppError } from '../utils/errors';
 import { asyncHandler } from '../utils/http';
 
 export const platformRouter = Router();
 const paramsSchema = z.object({ id: z.string().uuid() });
+const operatorAssistantRequestSchema = z.object({
+  question: z.string().trim().min(8).max(1000),
+  tenant_subdomain: z.string().trim().min(1).max(120).optional(),
+});
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -58,6 +63,21 @@ platformRouter.get(
       ...preflight,
       request_id: req.requestId,
     });
+  }),
+);
+
+platformRouter.post(
+  '/operator/assist',
+  asyncHandler(async (req, res) => {
+    const payload = operatorAssistantRequestSchema.parse(req.body);
+    const response = await askOperatorAssistant(
+      {
+        question: payload.question,
+        ...(payload.tenant_subdomain ? { tenant_subdomain: payload.tenant_subdomain } : {}),
+      },
+      req.requestId,
+    );
+    res.json(response);
   }),
 );
 

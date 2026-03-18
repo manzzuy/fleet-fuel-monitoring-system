@@ -2,10 +2,16 @@
 
 import { useEffect, useState } from 'react';
 
-import type { OnboardingPreflightResponse, OnboardingPreviewResponse, PlatformTenantRecord } from '@fleet-fuel/shared';
+import type {
+  OnboardingPreflightResponse,
+  OnboardingPreviewResponse,
+  OperatorAssistantResponse,
+  PlatformTenantRecord,
+} from '@fleet-fuel/shared';
 
 import {
   ApiClientError,
+  askPlatformOperatorAssistant,
   commitOnboardingBatch,
   createOnboardingBatch,
   createTenant,
@@ -56,6 +62,10 @@ export function PlatformConsole() {
   const [preflight, setPreflight] = useState<OnboardingPreflightResponse | null>(null);
   const [preflightLoading, setPreflightLoading] = useState(false);
   const [preflightError, setPreflightError] = useState<string | null>(null);
+  const [operatorQuestion, setOperatorQuestion] = useState('');
+  const [operatorResponse, setOperatorResponse] = useState<OperatorAssistantResponse | null>(null);
+  const [operatorLoading, setOperatorLoading] = useState(false);
+  const [operatorError, setOperatorError] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = window.localStorage.getItem('platform_access_token');
@@ -277,6 +287,32 @@ export function PlatformConsole() {
       setOnboardingError(toUiErrorMessage(error, 'Onboarding commit failed.'));
     } finally {
       setOnboardingBusy(false);
+    }
+  }
+
+  async function handleAskOperator(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!token) {
+      setOperatorError('Platform login is required.');
+      return;
+    }
+
+    setOperatorLoading(true);
+    setOperatorError(null);
+    setOperatorResponse(null);
+
+    try {
+      const activeTenant = tenants.find((entry) => entry.id === selectedTenantId);
+      const response = await askPlatformOperatorAssistant(token, {
+        question: operatorQuestion,
+        ...(activeTenant?.primary_subdomain ? { tenant_subdomain: activeTenant.primary_subdomain } : {}),
+      });
+      setOperatorResponse(response);
+    } catch (error) {
+      setOperatorError(error instanceof Error ? error.message : 'Unable to get operator guidance.');
+    } finally {
+      setOperatorLoading(false);
     }
   }
 
@@ -569,6 +605,79 @@ export function PlatformConsole() {
 
             {onboardingError ? <p className="status error">{onboardingError}</p> : null}
             {onboardingSuccess ? <p className="status">{onboardingSuccess}</p> : null}
+          </section>
+
+          <section className="card" data-testid="platform-operator-chat-v1">
+            <h2>AI System Operator Chat (v1)</h2>
+            <p>
+              Internal troubleshooting assistant for operations. It analyzes system-memory docs and repo context to
+              suggest likely root cause and safe next checks.
+            </p>
+            <form className="stack" onSubmit={handleAskOperator}>
+              <label className="field">
+                <span>Question</span>
+                <textarea
+                  value={operatorQuestion}
+                  onChange={(event) => setOperatorQuestion(event.target.value)}
+                  rows={3}
+                  placeholder="Why is missing daily checks showing 0 for maqshan?"
+                  required
+                />
+              </label>
+              <button className="button" type="submit" disabled={operatorLoading}>
+                {operatorLoading ? 'Analyzing…' : 'Ask operator assistant'}
+              </button>
+            </form>
+            {operatorError ? <p className="status error">{operatorError}</p> : null}
+            {operatorResponse ? (
+              <div className="stack">
+                <div className="preview-summary">
+                  <strong>Likely cause</strong>
+                  <p>{operatorResponse.likely_cause}</p>
+                  <p>
+                    Risk: <strong>{operatorResponse.risk_level}</strong> · Confidence:{' '}
+                    <strong>{operatorResponse.confidence}</strong>
+                    {operatorResponse.uncertain ? ' · Uncertain: yes (collect runtime evidence)' : ''}
+                  </p>
+                </div>
+                <div>
+                  <strong>Affected service(s)</strong>
+                  <p>{operatorResponse.affected_services.join(', ')}</p>
+                </div>
+                <div>
+                  <strong>Likely modules</strong>
+                  <ul>
+                    {operatorResponse.likely_modules.map((module) => (
+                      <li key={module}>
+                        <code>{module}</code>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <strong>Evidence</strong>
+                  {operatorResponse.evidence.length === 0 ? (
+                    <p className="status">No strong evidence found in current system-memory docs.</p>
+                  ) : (
+                    <ul>
+                      {operatorResponse.evidence.map((entry) => (
+                        <li key={`${entry.path}:${entry.excerpt}`}>
+                          {entry.excerpt} <code>({entry.path})</code>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <strong>Next checks</strong>
+                  <ul>
+                    {operatorResponse.next_checks.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : null}
           </section>
         </>
       )}

@@ -403,6 +403,10 @@ export interface VehicleLookupRecord {
   fleet_no: string;
   plate_no: string | null;
   previous_odometer_km?: number | null;
+  last_service_date?: string | null;
+  last_service_odometer_km?: number | null;
+  next_service_odometer_km?: number | null;
+  service_interval_km?: number | null;
   is_active?: boolean;
   site: {
     id: string;
@@ -685,6 +689,49 @@ export interface DriverDashboardResponse {
     date: string;
     has_submitted_daily_check: boolean;
     fuel_entries_count: number;
+  };
+  request_id: string;
+}
+
+export type OperatorQuestionType =
+  | 'onboarding_failure'
+  | 'driver_vehicle_visibility'
+  | 'missing_daily_checks_zero'
+  | 'last_deployment_changes'
+  | 'known_issue_check'
+  | 'service_inspection_priority'
+  | 'general';
+
+export type OperatorRiskLevel = 'low' | 'medium' | 'high';
+export type OperatorConfidence = 'low' | 'medium' | 'high';
+
+export interface OperatorAssistantRequest {
+  question: string;
+  tenant_subdomain?: string;
+}
+
+export interface OperatorAssistantEvidence {
+  source: string;
+  path: string;
+  excerpt: string;
+}
+
+export interface OperatorAssistantResponse {
+  question: string;
+  question_type: OperatorQuestionType;
+  likely_cause: string;
+  evidence: OperatorAssistantEvidence[];
+  affected_services: Array<'api' | 'admin-web' | 'driver-pwa' | 'database' | 'deployment'>;
+  likely_modules: string[];
+  known_previous_incidents: string[];
+  recent_relevant_changes: string[];
+  next_checks: string[];
+  risk_level: OperatorRiskLevel;
+  confidence: OperatorConfidence;
+  uncertain: boolean;
+  status_snapshot: {
+    api: 'assumed_healthy';
+    database: 'reachable' | 'unreachable';
   };
   request_id: string;
 }

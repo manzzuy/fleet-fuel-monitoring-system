@@ -16,6 +16,8 @@ import type {
   OnboardingBatch,
   OnboardingCommitResponse,
   OnboardingCreateBatchRequest,
+  OperatorAssistantRequest,
+  OperatorAssistantResponse,
   OnboardingPreflightResponse,
   OnboardingPreviewResponse,
   PlatformLoginRequest,
@@ -267,6 +269,22 @@ export async function onboardingPreflight(accessToken: string): Promise<Onboardi
   });
 
   return parseJson<OnboardingPreflightResponse>(response);
+}
+
+export async function askPlatformOperatorAssistant(
+  accessToken: string,
+  payload: OperatorAssistantRequest,
+): Promise<OperatorAssistantResponse> {
+  const response = await fetch(`${appConfig.apiBaseUrl}/platform/operator/assist`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<OperatorAssistantResponse>(response);
 }
 
 export async function uploadOnboardingWorkbook(
