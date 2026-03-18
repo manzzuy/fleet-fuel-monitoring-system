@@ -84,6 +84,22 @@ test('driver checklist validates required completion and restores saved draft', 
   await expect(restoredItem.locator('[data-testid^="driver-checklist-issue-note-"]').first()).toHaveValue('Draft restore note');
 });
 
+test('driver checklist mark-all-ok selects all and unchecks after manual issue change', async ({ page }) => {
+  await loginAndOpenChecklist(page);
+
+  const markAll = page.getByTestId('driver-checklist-mark-all-ok');
+  await expect(markAll).toBeVisible();
+  await markAll.check();
+  await expect(markAll).toBeChecked();
+
+  await fillChecklistOdometer(page);
+  await expect(page.getByTestId('driver-submit-daily-checklist')).toBeEnabled();
+
+  const item = await firstInteractiveChecklistCard(page);
+  await item.getByRole('button', { name: /ISSUE/i }).click();
+  await expect(markAll).not.toBeChecked();
+});
+
 test('driver checklist allows ISSUE without notes or photo and still submits', async ({ page }) => {
   await loginAndOpenChecklist(page);
 

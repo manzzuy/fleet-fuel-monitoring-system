@@ -720,6 +720,22 @@ ul {
   font-size: 13px;
 }
 
+.checklist-mark-all-ok {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.checklist-mark-all-ok span {
+  display: grid;
+  gap: 2px;
+}
+
+.checklist-mark-all-ok-helper {
+  font-size: 12px;
+}
+
 .checklist-sticky-submit {
   position: sticky;
   bottom: 0;

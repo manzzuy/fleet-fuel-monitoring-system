@@ -651,6 +651,12 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
   );
   const remainingRequiredCount = Math.max(0, requiredConfiguredItems.length - requiredCompleted);
   const progressPct = configuredItems.length > 0 ? Math.round((answeredConfiguredItems.length / configuredItems.length) * 100) : 0;
+  const markAllOkChecked = useMemo(
+    () =>
+      configuredItems.length > 0 &&
+      configuredItems.every((item) => (itemState[item.uiKey] ?? defaultItemState).status === 'PASS'),
+    [configuredItems, itemState],
+  );
   const previousOdometerKm = useMemo(
     () => getPreviousOdometerKm(vehicles, selectedVehicleId),
     [selectedVehicleId, vehicles],
@@ -728,6 +734,18 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
         severity,
       },
     };
+    saveDraft(next);
+  }
+
+  function toggleMarkAllOk(checked: boolean) {
+    const next = { ...itemState };
+    for (const item of configuredItems) {
+      const current = next[item.uiKey] ?? defaultItemState;
+      next[item.uiKey] = {
+        ...current,
+        status: checked ? 'PASS' : null,
+      };
+    }
     saveDraft(next);
   }
 
@@ -900,6 +918,20 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
             <div className="checklist-progress">
               <strong>{requiredCompleted}</strong> / {requiredConfiguredItems.length} required completed
             </div>
+
+            <label className="checkbox checklist-mark-all-ok" data-testid="driver-checklist-mark-all-ok-row">
+              <input
+                checked={markAllOkChecked}
+                data-testid="driver-checklist-mark-all-ok"
+                disabled={configuredItems.length === 0}
+                onChange={(event) => toggleMarkAllOk(event.target.checked)}
+                type="checkbox"
+              />
+              <span>
+                <strong>Mark all items OK</strong>
+                <small className="status checklist-mark-all-ok-helper">Tap any item to report issue</small>
+              </span>
+            </label>
 
             <div className="vehicle-odometer-row" data-testid="driver-checklist-vehicle-odometer-row">
               <label className="field">
