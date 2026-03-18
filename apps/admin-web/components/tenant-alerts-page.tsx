@@ -19,6 +19,7 @@ import {
   listTenantSites,
   listTenantVehicles,
 } from '../lib/api';
+import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
 import { getTenantTokenKey } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
@@ -227,7 +228,7 @@ export function TenantAlertsPage({ host, subdomain }: TenantAlertsPageProps) {
               <option value="">All vehicles</option>
               {vehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
-                  {vehicle.fleet_no} {vehicle.plate_no ? `(${vehicle.plate_no})` : ''}
+                  {formatFleetCode(vehicle.fleet_no)} {vehicle.plate_no ? `(${formatFleetCode(vehicle.plate_no)})` : ''}
                 </option>
               ))}
             </select>
@@ -256,7 +257,7 @@ export function TenantAlertsPage({ host, subdomain }: TenantAlertsPageProps) {
               <option value="">All sites</option>
               {sites.map((site) => (
                 <option key={site.id} value={site.id}>
-                  {site.site_code} - {site.site_name}
+                  {formatSiteDisplayName(site)}
                 </option>
               ))}
             </select>
@@ -289,9 +290,9 @@ export function TenantAlertsPage({ host, subdomain }: TenantAlertsPageProps) {
                 <span>
                   <span className={`severity-pill severity-${item.severity.toLowerCase()}`}>{item.severity}</span>
                 </span>
-                <span>{item.vehicle?.fleet_no ?? '—'}</span>
+                <span>{item.vehicle?.fleet_no ? formatFleetCode(item.vehicle.fleet_no) : '—'}</span>
                 <span>{item.driver?.full_name ?? '—'}</span>
-                <span>{item.site ? `${item.site.site_code} - ${item.site.site_name}` : '—'}</span>
+                <span>{item.site ? formatSiteDisplayName(item.site) : '—'}</span>
                 <span>{item.reason}</span>
                 <span>
                   <Link href={item.action.target}>{item.action.label}</Link>

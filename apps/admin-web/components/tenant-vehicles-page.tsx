@@ -19,6 +19,7 @@ import {
   listTenantVehicles,
   updateMasterVehicle,
 } from '../lib/api';
+import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
 import { getTenantTokenKey } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
@@ -53,6 +54,10 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
   const [vehicleForm, setVehicleForm] = useState({
     fleet_no: '',
     plate_no: '',
+    last_service_date: '',
+    last_service_odometer_km: '',
+    next_service_odometer_km: '',
+    service_interval_km: '',
     site_id: '',
     assigned_driver_user_id: '',
     is_active: true,
@@ -125,9 +130,14 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
 
   function startCreate() {
     setEditingId('new');
+    setSelectedVehicleId('');
     setVehicleForm({
       fleet_no: '',
       plate_no: '',
+      last_service_date: '',
+      last_service_odometer_km: '',
+      next_service_odometer_km: '',
+      service_interval_km: '',
       site_id: '',
       assigned_driver_user_id: '',
       is_active: true,
@@ -137,9 +147,15 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
 
   function startEdit(row: VehicleLookupRecord) {
     setEditingId(row.id);
+    setSelectedVehicleId(row.id);
+    setComplianceEditingVehicleId(row.id);
     setVehicleForm({
       fleet_no: row.fleet_no,
       plate_no: row.plate_no ?? '',
+      last_service_date: row.last_service_date ?? '',
+      last_service_odometer_km: row.last_service_odometer_km?.toString() ?? '',
+      next_service_odometer_km: row.next_service_odometer_km?.toString() ?? '',
+      service_interval_km: row.service_interval_km?.toString() ?? '',
       site_id: row.site?.id ?? '',
       assigned_driver_user_id: row.assigned_driver?.user_id ?? '',
       is_active: row.is_active ?? true,
@@ -161,8 +177,16 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
     try {
       if (editingId === 'new') {
         await createMasterVehicle(host, token, {
-          fleet_no: vehicleForm.fleet_no.trim(),
-          plate_no: vehicleForm.plate_no.trim() || null,
+          fleet_no: vehicleForm.fleet_no.trim().toUpperCase(),
+          plate_no: vehicleForm.plate_no.trim() ? vehicleForm.plate_no.trim().toUpperCase() : null,
+          last_service_date: vehicleForm.last_service_date || null,
+          last_service_odometer_km: vehicleForm.last_service_odometer_km.trim()
+            ? Number(vehicleForm.last_service_odometer_km)
+            : null,
+          next_service_odometer_km: vehicleForm.next_service_odometer_km.trim()
+            ? Number(vehicleForm.next_service_odometer_km)
+            : null,
+          service_interval_km: vehicleForm.service_interval_km.trim() ? Number(vehicleForm.service_interval_km) : null,
           site_id: vehicleForm.site_id || null,
           assigned_driver_user_id: vehicleForm.assigned_driver_user_id || null,
           is_active: vehicleForm.is_active,
@@ -170,8 +194,16 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
         setVehicleMessage('Vehicle created.');
       } else if (editingId) {
         await updateMasterVehicle(host, token, editingId, {
-          fleet_no: vehicleForm.fleet_no.trim(),
-          plate_no: vehicleForm.plate_no.trim() || null,
+          fleet_no: vehicleForm.fleet_no.trim().toUpperCase(),
+          plate_no: vehicleForm.plate_no.trim() ? vehicleForm.plate_no.trim().toUpperCase() : null,
+          last_service_date: vehicleForm.last_service_date || null,
+          last_service_odometer_km: vehicleForm.last_service_odometer_km.trim()
+            ? Number(vehicleForm.last_service_odometer_km)
+            : null,
+          next_service_odometer_km: vehicleForm.next_service_odometer_km.trim()
+            ? Number(vehicleForm.next_service_odometer_km)
+            : null,
+          service_interval_km: vehicleForm.service_interval_km.trim() ? Number(vehicleForm.service_interval_km) : null,
           site_id: vehicleForm.site_id || null,
           assigned_driver_user_id: vehicleForm.assigned_driver_user_id || null,
           is_active: vehicleForm.is_active,
@@ -213,6 +245,8 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
     }
     router.replace('/');
   }
+
+  const selectedVehicle = selectedVehicleId ? rows.find((row) => row.id === selectedVehicleId) ?? null : null;
 
   async function handleCreateType() {
     if (!host || !subdomain || !newTypeName.trim()) {
@@ -303,12 +337,47 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
                 <input value={vehicleForm.plate_no} onChange={(event) => setVehicleForm((current) => ({ ...current, plate_no: event.target.value }))} />
               </label>
               <label className="field">
+                <span>Last Service Date</span>
+                <input
+                  type="date"
+                  value={vehicleForm.last_service_date}
+                  onChange={(event) => setVehicleForm((current) => ({ ...current, last_service_date: event.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span>Last Service KM</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={vehicleForm.last_service_odometer_km}
+                  onChange={(event) => setVehicleForm((current) => ({ ...current, last_service_odometer_km: event.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span>Next Service Due KM</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={vehicleForm.next_service_odometer_km}
+                  onChange={(event) => setVehicleForm((current) => ({ ...current, next_service_odometer_km: event.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span>Service Interval KM</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={vehicleForm.service_interval_km}
+                  onChange={(event) => setVehicleForm((current) => ({ ...current, service_interval_km: event.target.value }))}
+                />
+              </label>
+              <label className="field">
                 <span>Assigned site</span>
                 <select value={vehicleForm.site_id} onChange={(event) => setVehicleForm((current) => ({ ...current, site_id: event.target.value }))}>
                   <option value="">Unassigned</option>
                   {sites.map((site) => (
                     <option key={site.id} value={site.id}>
-                      {site.site_code} - {site.site_name}
+                      {formatSiteDisplayName(site)}
                     </option>
                   ))}
                 </select>
@@ -357,14 +426,13 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
               <span>Site</span>
               <span>Status</span>
               <span>Edit</span>
-              <span>Compliance</span>
             </div>
             {rows.map((row) => (
               <Fragment key={row.id}>
                 <div className={`table-row vehicles-master-row ${editingId === row.id ? 'row-highlight' : ''}`}>
-                  <span>{row.fleet_no}</span>
-                  <span>{row.plate_no ?? '—'}</span>
-                  <span>{row.site ? `${row.site.site_code} - ${row.site.site_name}` : '—'}</span>
+                  <span>{formatFleetCode(row.fleet_no)}</span>
+                  <span>{row.plate_no ? formatFleetCode(row.plate_no) : '—'}</span>
+                  <span>{formatSiteDisplayName(row.site)}</span>
                   <span>
                     <span className={`status-pill ${row.is_active ? 'good' : 'issue'}`}>
                       {row.is_active ? '🟢 Active' : '🔴 Inactive'}
@@ -381,18 +449,6 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
                       ✎
                     </button>
                   </span>
-                  <span>
-                    <button
-                      className="button button-secondary"
-                      type="button"
-                      onClick={() => {
-                        setSelectedVehicleId(row.id);
-                        setComplianceEditingVehicleId(row.id);
-                      }}
-                    >
-                      Add inspection/compliance
-                    </button>
-                  </span>
                 </div>
                 {editingId === row.id ? (
                   <div className="table-row master-edit-row" data-testid="vehicles-edit-form">
@@ -406,12 +462,47 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
                         <input value={vehicleForm.plate_no} onChange={(event) => setVehicleForm((current) => ({ ...current, plate_no: event.target.value }))} />
                       </label>
                       <label className="field">
+                        <span>Last Service Date</span>
+                        <input
+                          type="date"
+                          value={vehicleForm.last_service_date}
+                          onChange={(event) => setVehicleForm((current) => ({ ...current, last_service_date: event.target.value }))}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Last Service KM</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={vehicleForm.last_service_odometer_km}
+                          onChange={(event) => setVehicleForm((current) => ({ ...current, last_service_odometer_km: event.target.value }))}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Next Service Due KM</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={vehicleForm.next_service_odometer_km}
+                          onChange={(event) => setVehicleForm((current) => ({ ...current, next_service_odometer_km: event.target.value }))}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Service Interval KM</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={vehicleForm.service_interval_km}
+                          onChange={(event) => setVehicleForm((current) => ({ ...current, service_interval_km: event.target.value }))}
+                        />
+                      </label>
+                      <label className="field">
                         <span>Assigned site</span>
                         <select value={vehicleForm.site_id} onChange={(event) => setVehicleForm((current) => ({ ...current, site_id: event.target.value }))}>
                           <option value="">Unassigned</option>
                           {sites.map((site) => (
                             <option key={site.id} value={site.id}>
-                              {site.site_code} - {site.site_name}
+                              {formatSiteDisplayName(site)}
                             </option>
                           ))}
                         </select>
@@ -447,13 +538,9 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
                         </button>
                       </div>
                     </div>
-                  </div>
-                ) : null}
-                {complianceEditingVehicleId === row.id ? (
-                  <div className="table-row master-edit-row" data-testid="vehicles-inline-compliance-form">
                     <div className="inline-grid four master-form-grid">
                       <label className="field">
-                        <span>Compliance type</span>
+                        <span>Inspection / compliance type</span>
                         <select value={selectedTypeId} onChange={(event) => setSelectedTypeId(event.target.value)}>
                           <option value="">Select type</option>
                           {complianceTypes.map((type) => (
@@ -480,18 +567,36 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
                         <input value={notes} onChange={(event) => setNotes(event.target.value)} />
                       </label>
                       <div className="edit-actions">
-                        <button className="button" type="button" onClick={() => void handleCreateRecord()} disabled={!selectedTypeId}>
+                        <button className="button button-secondary" type="button" onClick={() => void handleCreateRecord()} disabled={!selectedTypeId}>
                           Add inspection/compliance
-                        </button>
-                        <button
-                          className="button button-secondary"
-                          type="button"
-                          onClick={() => setComplianceEditingVehicleId(null)}
-                        >
-                          Cancel
                         </button>
                       </div>
                     </div>
+                    {complianceRows.length > 0 ? (
+                      <div className="table">
+                        <div className="table-row table-head vehicles-table-row">
+                          <span>Type</span>
+                          <span>Expiry</span>
+                          <span>Status</span>
+                          <span>Reference</span>
+                        </div>
+                        {complianceRows.map((compliance) => (
+                          <div className="table-row vehicles-table-row" key={compliance.id}>
+                            <span>{compliance.type.name}</span>
+                            <span>{compliance.expiry_date ?? '—'}</span>
+                            <span>
+                              {compliance.is_expired ? 'Expired' : compliance.is_expiring_soon ? 'Expiring soon' : 'Valid'}
+                            </span>
+                            <span>{compliance.reference_number ?? '—'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="status">No inspection/compliance records for this vehicle.</p>
+                    )}
+                    {complianceMessage ? (
+                      <p className={complianceMessage.toLowerCase().includes('unable') ? 'status error' : 'status'}>{complianceMessage}</p>
+                    ) : null}
                   </div>
                 ) : null}
               </Fragment>
@@ -500,64 +605,32 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
         ) : null}
         {vehicleMessage ? <p className={vehicleMessage.includes('Unable') ? 'status error' : 'status'}>{vehicleMessage}</p> : null}
       </section>
-      <section className="card" data-testid="vehicles-compliance-module">
-        <h2>Vehicle compliance records</h2>
-        <p className="status">Use “Add inspection/compliance” on a vehicle row to add records inline.</p>
-        <div className="inline-grid four">
-          <label className="field">
-            <span>Vehicle</span>
-            <select value={selectedVehicleId} onChange={(event) => setSelectedVehicleId(event.target.value)}>
-              <option value="">Select vehicle</option>
-              {rows.map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.fleet_no}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="inline-grid three">
-          <label className="field">
-            <span>New type name</span>
-            <input
-              value={newTypeName}
-              onChange={(event) => setNewTypeName(event.target.value)}
-              placeholder="e.g. Registration"
-            />
-          </label>
-          <label className="checkbox-field">
-            <input
-              checked={newTypeRequiresExpiry}
-              onChange={(event) => setNewTypeRequiresExpiry(event.target.checked)}
-              type="checkbox"
-            />
-            <span>Requires expiry date</span>
-          </label>
-          <div className="field">
-            <span>&nbsp;</span>
-            <button className="button button-secondary" type="button" onClick={handleCreateType}>
-              Create type
-            </button>
-          </div>
-        </div>
-        {complianceMessage ? <p className="status">{complianceMessage}</p> : null}
-        {selectedVehicleId && complianceRows.length === 0 ? <p className="status">No compliance records for selected vehicle.</p> : null}
-        {complianceRows.length > 0 ? (
+      <section className="card" data-testid="vehicles-maintenance-module">
+        <h2>Maintenance &amp; Service</h2>
+        {!selectedVehicleId ? <p className="status">Select a vehicle to view maintenance details.</p> : null}
+        {selectedVehicleId && !selectedVehicle ? <p className="status">Selected vehicle not found.</p> : null}
+        {selectedVehicle ? (
           <div className="table">
-            <div className="table-row table-head vehicles-table-row">
-              <span>Type</span>
-              <span>Expiry</span>
-              <span>Status</span>
-              <span>Reference</span>
+            <div className="table-row vehicles-table-row">
+              <span>Vehicle</span>
+              <span>{formatFleetCode(selectedVehicle.fleet_no)}</span>
             </div>
-            {complianceRows.map((row) => (
-              <div className="table-row vehicles-table-row" key={row.id}>
-                <span>{row.type.name}</span>
-                <span>{row.expiry_date ?? '—'}</span>
-                <span>{row.is_expired ? 'Expired' : row.is_expiring_soon ? 'Expiring soon' : 'Valid'}</span>
-                <span>{row.reference_number ?? '—'}</span>
-              </div>
-            ))}
+            <div className="table-row vehicles-table-row">
+              <span>Last Service Date</span>
+              <span>{selectedVehicle.last_service_date ?? '—'}</span>
+            </div>
+            <div className="table-row vehicles-table-row">
+              <span>Last Service KM</span>
+              <span>{selectedVehicle.last_service_odometer_km ?? '—'}</span>
+            </div>
+            <div className="table-row vehicles-table-row">
+              <span>Next Service Due KM</span>
+              <span>{selectedVehicle.next_service_odometer_km ?? '—'}</span>
+            </div>
+            <div className="table-row vehicles-table-row">
+              <span>Service Interval KM</span>
+              <span>{selectedVehicle.service_interval_km ?? '—'}</span>
+            </div>
           </div>
         ) : null}
       </section>

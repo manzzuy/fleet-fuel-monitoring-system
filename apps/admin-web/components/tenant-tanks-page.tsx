@@ -7,6 +7,7 @@ import type { TankLookupRecord } from '@fleet-fuel/shared';
 import type { ScopeStatus } from '@fleet-fuel/shared';
 
 import { ApiClientError, createMasterTank, listTenantSites, listTenantTanks, updateMasterTank } from '../lib/api';
+import { formatSiteDisplayName } from '../lib/display-format';
 import { getTenantTokenKey } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
@@ -200,7 +201,7 @@ export function TenantTanksPage({ host, subdomain }: TenantTanksPageProps) {
                   <option value="">Select site</option>
                   {sites.map((site) => (
                     <option key={site.id} value={site.id}>
-                      {site.site_code} - {site.site_name}
+                      {formatSiteDisplayName(site)}
                     </option>
                   ))}
                 </select>
@@ -234,7 +235,7 @@ export function TenantTanksPage({ host, subdomain }: TenantTanksPageProps) {
                   <span>{row.tank_name}</span>
                   <span>{row.capacity_l}</span>
                   <span>{row.reorder_level_l}</span>
-                  <span>{row.site.site_code} - {row.site.site_name}</span>
+                  <span>{formatSiteDisplayName(row.site)}</span>
                   <span className="edit-action-cell">
                     <button
                       aria-label={`Edit ${row.tank_name}`}
@@ -271,7 +272,7 @@ export function TenantTanksPage({ host, subdomain }: TenantTanksPageProps) {
                           <option value="">Select site</option>
                           {sites.map((site) => (
                             <option key={site.id} value={site.id}>
-                              {site.site_code} - {site.site_name}
+                              {formatSiteDisplayName(site)}
                             </option>
                           ))}
                         </select>

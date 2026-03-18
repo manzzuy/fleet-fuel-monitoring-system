@@ -9,6 +9,7 @@ import type { SiteLookupRecord } from '@fleet-fuel/shared';
 import type { ScopeStatus } from '@fleet-fuel/shared';
 
 import { ApiClientError, listDailyChecks, listTenantDrivers, listTenantSites, listTenantVehicles } from '../lib/api';
+import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
 import { getTenantTokenKey } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
@@ -226,7 +227,7 @@ export function TenantDailyChecksPage({ host, subdomain }: TenantDailyChecksPage
             Reset filters
           </button>
         </div>
-        <div className="inline-grid four">
+        <div className="inline-grid four filter-grid">
           <label className="field">
             <span>Date</span>
             <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
@@ -245,7 +246,7 @@ export function TenantDailyChecksPage({ host, subdomain }: TenantDailyChecksPage
               <option value="">All vehicles</option>
               {vehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
-                  {vehicle.fleet_no} {vehicle.plate_no ? `(${vehicle.plate_no})` : ''}
+                  {formatFleetCode(vehicle.fleet_no)} {vehicle.plate_no ? `(${formatFleetCode(vehicle.plate_no)})` : ''}
                 </option>
               ))}
             </select>
@@ -256,13 +257,13 @@ export function TenantDailyChecksPage({ host, subdomain }: TenantDailyChecksPage
               <option value="">All sites</option>
               {sites.map((site) => (
                 <option key={site.id} value={site.id}>
-                  {site.site_code} - {site.site_name}
+                  {formatSiteDisplayName(site)}
                 </option>
               ))}
             </select>
           </label>
         </div>
-        <div className="inline-grid four">
+        <div className="inline-grid four filter-grid">
           <label className="field">
             <span>Driver</span>
             <select value={driverId} onChange={(event) => setDriverId(event.target.value)}>
@@ -332,7 +333,7 @@ export function TenantDailyChecksPage({ host, subdomain }: TenantDailyChecksPage
                   key={check.id}
                 >
                   <span className="daily-check-cell">{check.check_date}</span>
-                  <span className="daily-check-cell">{check.vehicle.fleet_no}</span>
+                  <span className="daily-check-cell">{formatFleetCode(check.vehicle.fleet_no)}</span>
                   <span className="daily-check-cell">
                     <span className="status-pill">{checkStatusLabel(check.status)}</span>
                   </span>

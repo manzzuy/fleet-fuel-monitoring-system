@@ -18,6 +18,7 @@ import {
   listTenantVehicles,
   updateMasterDriver,
 } from '../lib/api';
+import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
 import { getTenantTokenKey } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
@@ -124,6 +125,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
 
   function startCreate() {
     setEditingId('new');
+    setSelectedDriverId('');
     setDriverForm({
       full_name: '',
       employee_no: '',
@@ -137,6 +139,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
 
   function startEdit(row: DriverLookupRecord) {
     setEditingId(row.id);
+    setSelectedDriverId(row.id);
     setDriverForm({
       full_name: row.full_name,
       employee_no: row.employee_no ?? '',
@@ -323,7 +326,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                   <option value="">Unassigned</option>
                   {sites.map((site) => (
                     <option key={site.id} value={site.id}>
-                      {site.site_code} - {site.site_name}
+                      {formatSiteDisplayName(site)}
                     </option>
                   ))}
                 </select>
@@ -337,7 +340,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                   <option value="">Unassigned</option>
                   {vehicles.map((vehicle) => (
                     <option key={vehicle.id} value={vehicle.id}>
-                      {vehicle.fleet_no} {vehicle.plate_no ? `(${vehicle.plate_no})` : ''}
+                      {formatFleetCode(vehicle.fleet_no)} {vehicle.plate_no ? `(${formatFleetCode(vehicle.plate_no)})` : ''}
                     </option>
                   ))}
                 </select>
@@ -373,7 +376,6 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
               <span>Site</span>
               <span>Status</span>
               <span>Edit</span>
-              <span>Compliance</span>
             </div>
             {rows.map((row) => (
               <Fragment key={row.id}>
@@ -381,7 +383,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                   <span>{row.full_name}</span>
                   <span>{row.employee_no ?? '—'}</span>
                   <span>{row.username ?? '—'}</span>
-                  <span>{row.site ? `${row.site.site_code}` : '—'}</span>
+                  <span>{formatSiteDisplayName(row.site)}</span>
                   <span>
                     <span className={`status-pill ${row.is_active ? 'good' : 'issue'}`}>
                       {row.is_active ? '🟢 Active' : '🔴 Inactive'}
@@ -396,11 +398,6 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                       onClick={() => startEdit(row)}
                     >
                       ✎
-                    </button>
-                  </span>
-                  <span>
-                    <button className="button button-secondary" type="button" onClick={() => setSelectedDriverId(row.id)}>
-                      Add training/certification
                     </button>
                   </span>
                 </div>
@@ -428,7 +425,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                           <option value="">Unassigned</option>
                           {sites.map((site) => (
                             <option key={site.id} value={site.id}>
-                              {site.site_code} - {site.site_name}
+                              {formatSiteDisplayName(site)}
                             </option>
                           ))}
                         </select>
@@ -442,7 +439,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                           <option value="">Unassigned</option>
                           {vehicles.map((vehicle) => (
                             <option key={vehicle.id} value={vehicle.id}>
-                              {vehicle.fleet_no} {vehicle.plate_no ? `(${vehicle.plate_no})` : ''}
+                              {formatFleetCode(vehicle.fleet_no)} {vehicle.plate_no ? `(${formatFleetCode(vehicle.plate_no)})` : ''}
                             </option>
                           ))}
                         </select>
@@ -464,6 +461,65 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                         </button>
                       </div>
                     </div>
+                    <div className="inline-grid four master-form-grid">
+                      <label className="field">
+                        <span>Training / certification type</span>
+                        <select value={selectedTypeId} onChange={(event) => setSelectedTypeId(event.target.value)}>
+                          <option value="">Select type</option>
+                          {complianceTypes.map((type) => (
+                            <option key={type.id} value={type.id}>
+                              {type.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span>Reference no</span>
+                        <input value={referenceNumber} onChange={(event) => setReferenceNumber(event.target.value)} />
+                      </label>
+                      <label className="field">
+                        <span>Issued at</span>
+                        <input type="date" value={issuedAt} onChange={(event) => setIssuedAt(event.target.value)} />
+                      </label>
+                      <label className="field">
+                        <span>Expiry date</span>
+                        <input type="date" value={expiryDate} onChange={(event) => setExpiryDate(event.target.value)} />
+                      </label>
+                      <label className="field">
+                        <span>Notes</span>
+                        <input value={notes} onChange={(event) => setNotes(event.target.value)} />
+                      </label>
+                      <div className="edit-actions">
+                        <button className="button button-secondary" type="button" onClick={handleCreateRecord} disabled={!selectedTypeId}>
+                          Add training/certification
+                        </button>
+                      </div>
+                    </div>
+                    {complianceRows.length > 0 ? (
+                      <div className="table">
+                        <div className="table-row table-head drivers-table-row">
+                          <span>Type</span>
+                          <span>Expiry</span>
+                          <span>Status</span>
+                          <span>Reference</span>
+                        </div>
+                        {complianceRows.map((compliance) => (
+                          <div className="table-row drivers-table-row" key={compliance.id}>
+                            <span>{compliance.type.name}</span>
+                            <span>{compliance.expiry_date ?? '—'}</span>
+                            <span>
+                              {compliance.is_expired ? 'Expired' : compliance.is_expiring_soon ? 'Expiring soon' : 'Valid'}
+                            </span>
+                            <span>{compliance.reference_number ?? '—'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="status">No training/certification records for this driver.</p>
+                    )}
+                    {complianceMessage ? (
+                      <p className={complianceMessage.toLowerCase().includes('unable') ? 'status error' : 'status'}>{complianceMessage}</p>
+                    ) : null}
                   </div>
                 ) : null}
               </Fragment>
@@ -471,97 +527,6 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
           </div>
         ) : null}
         {driverMessage ? <p className={driverMessage.includes('Unable') ? 'status error' : 'status'}>{driverMessage}</p> : null}
-      </section>
-      <section className="card" data-testid="drivers-compliance-module">
-        <h2>Driver compliance records</h2>
-        <div className="inline-grid four">
-          <label className="field">
-            <span>Driver</span>
-            <select value={selectedDriverId} onChange={(event) => setSelectedDriverId(event.target.value)}>
-              <option value="">Select driver</option>
-              {rows.map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.full_name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Compliance type</span>
-            <select value={selectedTypeId} onChange={(event) => setSelectedTypeId(event.target.value)}>
-              <option value="">Select type</option>
-              {complianceTypes.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Reference no</span>
-            <input value={referenceNumber} onChange={(event) => setReferenceNumber(event.target.value)} />
-          </label>
-          <label className="field">
-            <span>Issued at</span>
-            <input type="date" value={issuedAt} onChange={(event) => setIssuedAt(event.target.value)} />
-          </label>
-        </div>
-        <div className="inline-grid three">
-          <label className="field">
-            <span>Expiry date</span>
-            <input type="date" value={expiryDate} onChange={(event) => setExpiryDate(event.target.value)} />
-          </label>
-          <label className="field">
-            <span>Notes</span>
-            <input value={notes} onChange={(event) => setNotes(event.target.value)} />
-          </label>
-          <div className="field">
-            <span>&nbsp;</span>
-            <button className="button" type="button" onClick={handleCreateRecord}>
-              Add driver compliance
-            </button>
-          </div>
-        </div>
-        <div className="inline-grid three">
-          <label className="field">
-            <span>New type name</span>
-            <input value={newTypeName} onChange={(event) => setNewTypeName(event.target.value)} placeholder="e.g. H2S" />
-          </label>
-          <label className="checkbox-field">
-            <input
-              checked={newTypeRequiresExpiry}
-              onChange={(event) => setNewTypeRequiresExpiry(event.target.checked)}
-              type="checkbox"
-            />
-            <span>Requires expiry date</span>
-          </label>
-          <div className="field">
-            <span>&nbsp;</span>
-            <button className="button button-secondary" type="button" onClick={handleCreateType}>
-              Create type
-            </button>
-          </div>
-        </div>
-        {complianceMessage ? <p className="status">{complianceMessage}</p> : null}
-        {selectedDriverId && complianceRows.length === 0 ? <p className="status">No compliance records for selected driver.</p> : null}
-        {complianceRows.length > 0 ? (
-          <div className="table">
-            <div className="table-row table-head drivers-table-row">
-              <span>Type</span>
-              <span>Expiry</span>
-              <span>Status</span>
-              <span>Reference</span>
-            </div>
-            {complianceRows.map((row) => (
-              <div className="table-row drivers-table-row" key={row.id}>
-                <span>{row.type.name}</span>
-                <span>{row.expiry_date ?? '—'}</span>
-                <span>{row.is_expired ? 'Expired' : row.is_expiring_soon ? 'Expiring soon' : 'Valid'}</span>
-                <span>{row.reference_number ?? '—'}</span>
-              </div>
-            ))}
-          </div>
-        ) : null}
       </section>
     </TenantSidebarLayout>
   );

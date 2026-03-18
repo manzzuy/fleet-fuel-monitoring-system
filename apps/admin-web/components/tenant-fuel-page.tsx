@@ -21,6 +21,7 @@ import {
   listTenantSites,
   listTenantVehicles,
 } from '../lib/api';
+import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
 import { getTenantTokenKey } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
@@ -236,14 +237,14 @@ export function TenantFuelPage({ host, subdomain }: TenantFuelPageProps) {
             Clear filters
           </button>
         </div>
-        <div className="inline-grid four">
+        <div className="inline-grid four filter-grid">
           <label className="field">
             <span>Vehicle</span>
             <select value={vehicleId} onChange={(event) => setVehicleId(event.target.value)}>
               <option value="">All vehicles</option>
               {vehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
-                  {vehicle.fleet_no} {vehicle.plate_no ? `(${vehicle.plate_no})` : ''}
+                  {formatFleetCode(vehicle.fleet_no)} {vehicle.plate_no ? `(${formatFleetCode(vehicle.plate_no)})` : ''}
                 </option>
               ))}
             </select>
@@ -268,14 +269,14 @@ export function TenantFuelPage({ host, subdomain }: TenantFuelPageProps) {
             <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
           </label>
         </div>
-        <div className="inline-grid four">
+        <div className="inline-grid four filter-grid">
           <label className="field">
             <span>Site</span>
             <select value={siteId} onChange={(event) => setSiteId(event.target.value)}>
               <option value="">All sites</option>
               {sites.map((site) => (
                 <option key={site.id} value={site.id}>
-                  {site.site_code} - {site.site_name}
+                  {formatSiteDisplayName(site)}
                 </option>
               ))}
             </select>
@@ -346,7 +347,7 @@ export function TenantFuelPage({ host, subdomain }: TenantFuelPageProps) {
                   key={entry.id}
                 >
                   <span>{entry.entry_date}</span>
-                  <span>{entry.vehicle.fleet_no}</span>
+                  <span>{formatFleetCode(entry.vehicle.fleet_no)}</span>
                   <span>{entry.driver?.full_name ?? '—'}</span>
                   <span>{entry.liters}</span>
                   <span>{entry.odometer_km}</span>

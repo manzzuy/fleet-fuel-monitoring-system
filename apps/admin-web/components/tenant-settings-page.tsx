@@ -23,6 +23,7 @@ import {
   updateNotificationContact,
   updateTenantNotificationSettings,
 } from '../lib/api';
+import { formatSiteDisplayName } from '../lib/display-format';
 import { getTenantTokenKey } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
@@ -866,7 +867,7 @@ export function TenantSettingsPage({ host, subdomain }: TenantSettingsPageProps)
                     <option value="">All operations sites</option>
                     {siteOptions.map((site) => (
                       <option key={site.id} value={site.id}>
-                        {site.site_code} - {site.site_name}
+                        {formatSiteDisplayName(site)}
                       </option>
                     ))}
                   </select>
@@ -1030,7 +1031,7 @@ export function TenantSettingsPage({ host, subdomain }: TenantSettingsPageProps)
                           <td>
                             {contact.sites.length === 0
                               ? 'All operations sites'
-                              : contact.sites.map((site) => site.site_code).join(', ')}
+                              : contact.sites.map((site) => formatSiteDisplayName(site)).join(', ')}
                           </td>
                           <td>{contact.is_active ? 'Active' : 'Inactive'}</td>
                           <td>
@@ -1068,7 +1069,7 @@ export function TenantSettingsPage({ host, subdomain }: TenantSettingsPageProps)
                                 <option value="">Assign site…</option>
                                 {siteOptions.map((site) => (
                                   <option key={site.id} value={site.id}>
-                                    {site.site_code}
+                                    {formatSiteDisplayName(site)}
                                   </option>
                                 ))}
                               </select>

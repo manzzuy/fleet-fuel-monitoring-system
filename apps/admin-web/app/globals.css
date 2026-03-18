@@ -227,6 +227,14 @@ dd {
   gap: 16px;
 }
 
+.tenant-session-meta {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .status {
   color: var(--muted);
 }
@@ -260,6 +268,10 @@ dd {
   align-items: center;
   min-width: 780px;
   transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.table-row > span {
+  min-width: 0;
 }
 
 .table-row:hover {
@@ -399,7 +411,7 @@ dd {
 }
 
 .dashboard-alert-row {
-  grid-template-columns: 0.9fr 1.1fr 0.9fr 2fr 0.9fr;
+  grid-template-columns: minmax(92px, 0.9fr) minmax(140px, 1.1fr) minmax(90px, 0.9fr) minmax(220px, 2fr) minmax(110px, 0.9fr);
 }
 
 .dashboard-watchlist-row {
@@ -445,7 +457,7 @@ dd {
 }
 
 .drivers-master-row {
-  grid-template-columns: 1.3fr 0.9fr 0.9fr 1fr 0.9fr 0.7fr 1.2fr;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr 0.7fr;
 }
 
 .drivers-table-row {
@@ -453,7 +465,7 @@ dd {
 }
 
 .vehicles-master-row {
-  grid-template-columns: 1fr 1fr 1.2fr 0.9fr 0.7fr 1.2fr;
+  grid-template-columns: 1fr 1fr 1.4fr 0.9fr 0.7fr;
 }
 
 .vehicles-table-row {
@@ -497,6 +509,13 @@ dd {
 
 .master-form-grid .field,
 .master-form-grid .checkbox-field {
+  width: 100%;
+  min-width: 0;
+}
+
+.master-form-grid .field input,
+.master-form-grid .field select,
+.master-form-grid .field textarea {
   width: 100%;
 }
 
@@ -560,6 +579,15 @@ dd {
 
 .inline-grid.four {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.filter-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: end;
+}
+
+[data-testid='dashboard-needs-attention'] .table-row {
+  min-width: 980px;
 }
 
 .edit-action-cell {
@@ -950,6 +978,11 @@ dd {
 
   .master-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .tenant-session-meta {
+    text-align: left;
+    width: 100%;
   }
 
   .tenant-layout {

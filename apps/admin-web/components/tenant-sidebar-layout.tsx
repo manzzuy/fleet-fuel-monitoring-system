@@ -63,7 +63,10 @@ export function TenantSidebarLayout({
               <h1>{title}</h1>
               <p>{description}</p>
             </div>
-            <span className="badge">dev</span>
+            <div className="tenant-session-meta" data-testid="tenant-session-meta">
+              <span>Tenant: {subdomain}</span>
+              <span>Signed in as: Tenant Admin</span>
+            </div>
           </div>
         </section>
         {children}
