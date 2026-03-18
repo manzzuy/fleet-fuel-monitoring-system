@@ -54,8 +54,8 @@ const GROUP_ORDER: GroupName[] = [
 const PAPER_TEMPLATE: Record<GroupName, PaperTemplateItem[]> = {
   'Mechanical & Exterior': [
     { key: 'body', labelEn: 'Body', labelAr: 'الهيكل', icon: '/checklist-icons/body.svg', aliases: ['body'] },
-    { key: 'steering', labelEn: 'Steering', labelAr: 'الدركسون', icon: '/checklist-icons/steering.svg', aliases: ['steering'] },
-    { key: 'mirrors', labelEn: 'Mirrors', labelAr: 'المرايا', icon: '/checklist-icons/mirrors.svg', aliases: ['mirror'] },
+    { key: 'steering', labelEn: 'Steering', labelAr: 'الدركسون', icon: '/checklist-icons/Steering.svg', aliases: ['steering'] },
+    { key: 'mirrors', labelEn: 'Mirrors', labelAr: 'المرايا', icon: '/checklist-icons/Mirrors.svg', aliases: ['mirror'] },
     {
       key: 'wipers',
       labelEn: 'Wipers / Windscreen',
@@ -67,7 +67,7 @@ const PAPER_TEMPLATE: Record<GroupName, PaperTemplateItem[]> = {
       key: 'indicators',
       labelEn: 'Light / Indicators',
       labelAr: 'الأنوار / الإشارات',
-      icon: '/checklist-icons/indicators.svg',
+      icon: '/checklist-icons/Indicators.svg',
       aliases: ['indicator', 'light'],
     },
     {
@@ -146,14 +146,14 @@ const PAPER_TEMPLATE: Record<GroupName, PaperTemplateItem[]> = {
       key: 'radio',
       labelEn: 'Radio Tape Recorder',
       labelAr: 'المسجل / الراديو',
-      icon: '/checklist-icons/radio.svg',
+      icon: '/checklist-icons/Radio.svg',
       aliases: ['radio', 'tape recorder'],
     },
     {
       key: 'controls',
       labelEn: 'Operational Controls',
       labelAr: 'ضوابط التشغيل',
-      icon: '/checklist-icons/radio.svg',
+      icon: '/checklist-icons/Radio.svg',
       aliases: ['control'],
     },
   ],
@@ -167,7 +167,7 @@ const PAPER_TEMPLATE: Record<GroupName, PaperTemplateItem[]> = {
     },
     { key: 'toolbox', labelEn: 'Toolbox', labelAr: 'صندوق الأدوات', icon: '/checklist-icons/tools.svg', aliases: ['toolbox'] },
     { key: 'tools', labelEn: 'Tools', labelAr: 'الأدوات', icon: '/checklist-icons/tools.svg', aliases: ['tool'] },
-    { key: 'jack', labelEn: 'Jack Spanner', labelAr: 'الرافعة', icon: '/checklist-icons/jack.svg', aliases: ['jack', 'spanner'] },
+    { key: 'jack', labelEn: 'Jack Spanner', labelAr: 'الرافعة', icon: '/checklist-icons/Jack.svg', aliases: ['jack', 'spanner'] },
     { key: 'ras', labelEn: 'RAS Sticker', labelAr: 'ملصق RAS', icon: '/checklist-icons/ras-sticker.svg', aliases: ['ras'] },
     {
       key: 'lock',
@@ -345,7 +345,8 @@ export function PaperChecklistRenderer({
                     <span className="checklist-item-icon" aria-hidden="true">
                       {item.icon.startsWith('/checklist-icons/') ? (
                         (() => {
-                          const cropped = CROPPED_ICON_SOURCES.has(item.icon);
+                          const normalizedIconPath = item.icon.split('?')[0]?.toLowerCase() ?? item.icon;
+                          const cropped = CROPPED_ICON_SOURCES.has(normalizedIconPath);
                           return (
                         <img
                           alt=""
