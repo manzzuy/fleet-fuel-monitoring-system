@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import type { ScopeStatus, TenantDashboardSummaryResponse } from '@fleet-fuel/shared';
 
 import { ApiClientError, getTenantDashboardSummary } from '../lib/api';
+import { formatFleetCode } from '../lib/display-format';
 import { getTenantTokenKey } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
@@ -324,7 +325,7 @@ export function TenantDashboardShell({ host, subdomain }: TenantDashboardShellPr
                 <div className="table-row dashboard-alert-row" key={item.id}>
                   <span>{new Date(item.occurred_at).toLocaleTimeString()}</span>
                   <span>{formatAlertType(item.alert_type)}</span>
-                  <span>{item.vehicle?.fleet_no ?? '—'}</span>
+                  <span>{item.vehicle?.fleet_no ? formatFleetCode(item.vehicle.fleet_no) : '—'}</span>
                   <span>{item.reason}</span>
                   <span>
                     <Link href={item.action.target}>{item.action.label}</Link>
@@ -371,7 +372,7 @@ export function TenantDashboardShell({ host, subdomain }: TenantDashboardShellPr
               {complianceWatchlist.map((item) => (
                 <div className="table-row dashboard-watchlist-row" key={item.id}>
                   <span>{item.alert_type === 'compliance_expired' ? 'Expired' : 'Expiring soon'}</span>
-                  <span>{item.driver?.full_name ?? item.vehicle?.fleet_no ?? '—'}</span>
+                  <span>{item.driver?.full_name ?? (item.vehicle?.fleet_no ? formatFleetCode(item.vehicle.fleet_no) : '—')}</span>
                   <span>{item.reason}</span>
                   <span>
                     <Link href={item.action.target}>{item.action.label}</Link>
@@ -401,7 +402,7 @@ export function TenantDashboardShell({ host, subdomain }: TenantDashboardShellPr
               {latestFuelExceptions.map((item) => (
                 <div className="table-row dashboard-compact-row" key={item.id}>
                   <span>{formatAlertType(item.alert_type)}</span>
-                  <span>{item.vehicle?.fleet_no ?? '—'}</span>
+                  <span>{item.vehicle?.fleet_no ? formatFleetCode(item.vehicle.fleet_no) : '—'}</span>
                   <span>
                     <Link href={item.action.target}>{item.action.label}</Link>
                   </span>
@@ -428,7 +429,7 @@ export function TenantDashboardShell({ host, subdomain }: TenantDashboardShellPr
               {latestChecklistIssues.map((item) => (
                 <div className="table-row dashboard-compact-row" key={item.id}>
                   <span>{formatAlertType(item.alert_type)}</span>
-                  <span>{item.vehicle?.fleet_no ?? '—'}</span>
+                  <span>{item.vehicle?.fleet_no ? formatFleetCode(item.vehicle.fleet_no) : '—'}</span>
                   <span>
                     <Link href={item.action.target}>{item.action.label}</Link>
                   </span>
@@ -455,7 +456,7 @@ export function TenantDashboardShell({ host, subdomain }: TenantDashboardShellPr
               {latestComplianceUpdates.map((item) => (
                 <div className="table-row dashboard-compact-row" key={item.id}>
                   <span>{item.alert_type === 'compliance_expired' ? 'Expired' : 'Expiring soon'}</span>
-                  <span>{item.driver?.full_name ?? item.vehicle?.fleet_no ?? '—'}</span>
+                  <span>{item.driver?.full_name ?? (item.vehicle?.fleet_no ? formatFleetCode(item.vehicle.fleet_no) : '—')}</span>
                   <span>
                     <Link href={item.action.target}>{item.action.label}</Link>
                   </span>
