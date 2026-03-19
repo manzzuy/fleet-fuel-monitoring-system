@@ -72,6 +72,11 @@ export interface PlatformLoginResponse {
   tenant_id: null;
   role: 'PLATFORM_OWNER';
   actor_type: 'PLATFORM';
+  support_mode?: boolean;
+}
+
+export interface PlatformSupportModeResponse extends PlatformLoginResponse {
+  support_mode: true;
 }
 
 export interface PlatformTenantRecord {
@@ -81,6 +86,59 @@ export interface PlatformTenantRecord {
   primary_subdomain: string;
   created_at: string;
   initial_admin?: TenantAdminSummary;
+}
+
+export interface PlatformSupportTenantUserRecord {
+  id: string;
+  tenant_id: string;
+  role:
+    | 'TENANT_ADMIN'
+    | 'COMPANY_ADMIN'
+    | 'SUPERVISOR'
+    | 'SITE_SUPERVISOR'
+    | 'SAFETY_OFFICER'
+    | 'TRANSPORT_MANAGER'
+    | 'HEAD_OFFICE_ADMIN'
+    | 'DRIVER';
+  full_name: string;
+  email: string | null;
+  username: string | null;
+  employee_no: string | null;
+  is_active: boolean;
+  site_id: string | null;
+  site_ids: string[];
+  assigned_vehicle_id: string | null;
+  created_at: string;
+}
+
+export interface PlatformSupportTenantUsersResponse {
+  tenant_id: string;
+  items: PlatformSupportTenantUserRecord[];
+}
+
+export interface PlatformSupportUserUpdateRequest {
+  role?:
+    | 'TENANT_ADMIN'
+    | 'COMPANY_ADMIN'
+    | 'SUPERVISOR'
+    | 'SITE_SUPERVISOR'
+    | 'SAFETY_OFFICER'
+    | 'TRANSPORT_MANAGER'
+    | 'HEAD_OFFICE_ADMIN'
+    | 'DRIVER'
+    | undefined;
+  full_name?: string | undefined;
+  email?: string | null | undefined;
+  username?: string | null | undefined;
+  employee_no?: string | null | undefined;
+  is_active?: boolean | undefined;
+  site_id?: string | null | undefined;
+  site_ids?: string[] | undefined;
+  assigned_vehicle_id?: string | null | undefined;
+}
+
+export interface PlatformSupportUserResetRequest {
+  password: string;
 }
 
 export interface TenantLoginResponse {

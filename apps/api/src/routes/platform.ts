@@ -3,7 +3,11 @@ import fs from 'node:fs/promises';
 import multer from 'multer';
 import { z } from 'zod';
 
-import { createTenantRequestSchema, onboardingCreateBatchRequestSchema } from '@fleet-fuel/shared';
+import {
+  createTenantRequestSchema,
+  onboardingCreateBatchRequestSchema,
+  type PlatformSupportUserUpdateRequest,
+} from '@fleet-fuel/shared';
 
 import {
   assertXlsxFilename,
@@ -11,6 +15,7 @@ import {
   ensureOnboardingStorageDir,
 } from '../modules/onboarding/storage';
 import { platformAuthMiddleware } from '../middleware/platform-auth';
+import { platformSupportModeMiddleware } from '../middleware/platform-auth';
 import {
   commitOnboardingBatch,
   createOnboardingBatch,
@@ -19,6 +24,12 @@ import {
   setOnboardingBatchUploadPath,
 } from '../services/onboarding.service';
 import { createTenant, listTenants } from '../services/platform-tenant.service';
+import {
+  enterPlatformSupportMode,
+  listSupportTenantUsers,
+  resetSupportTenantUserAccount,
+  updateSupportTenantUser,
+} from '../services/platform-support.service';
 import { askOperatorAssistant } from '../services/operator-assistant.service';
 import { AppError } from '../utils/errors';
 import { asyncHandler } from '../utils/http';
@@ -34,6 +45,38 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024,
   },
+});
+const supportTenantParamsSchema = z.object({
+  tenantId: z.string().uuid(),
+});
+const supportUserParamsSchema = z.object({
+  tenantId: z.string().uuid(),
+  userId: z.string().uuid(),
+});
+const supportUserUpdateSchema = z.object({
+  role: z
+    .enum([
+      'TENANT_ADMIN',
+      'COMPANY_ADMIN',
+      'SUPERVISOR',
+      'SITE_SUPERVISOR',
+      'SAFETY_OFFICER',
+      'TRANSPORT_MANAGER',
+      'HEAD_OFFICE_ADMIN',
+      'DRIVER',
+    ])
+    .optional(),
+  full_name: z.string().trim().min(1).optional(),
+  email: z.string().trim().email().optional().nullable(),
+  username: z.string().trim().min(1).optional().nullable(),
+  employee_no: z.string().trim().min(1).optional().nullable(),
+  is_active: z.boolean().optional(),
+  site_id: z.string().uuid().optional().nullable(),
+  site_ids: z.array(z.string().uuid()).optional(),
+  assigned_vehicle_id: z.string().uuid().optional().nullable(),
+});
+const supportUserResetSchema = z.object({
+  password: z.string().min(10),
 });
 
 platformRouter.use(platformAuthMiddleware);
@@ -78,6 +121,64 @@ platformRouter.post(
       req.requestId,
     );
     res.json(response);
+  }),
+);
+
+platformRouter.post(
+  '/support-mode/enter',
+  asyncHandler(async (req, res) => {
+    const response = await enterPlatformSupportMode(req.auth!.sub, req.requestId);
+    res.json(response);
+  }),
+);
+
+platformRouter.get(
+  '/support/tenants/:tenantId/users',
+  platformSupportModeMiddleware,
+  asyncHandler(async (req, res) => {
+    const { tenantId } = supportTenantParamsSchema.parse(req.params);
+    const items = await listSupportTenantUsers(tenantId);
+    res.json({
+      tenant_id: tenantId,
+      items,
+    });
+  }),
+);
+
+platformRouter.patch(
+  '/support/tenants/:tenantId/users/:userId',
+  platformSupportModeMiddleware,
+  asyncHandler(async (req, res) => {
+    const { tenantId, userId } = supportUserParamsSchema.parse(req.params);
+    const rawPayload = supportUserUpdateSchema.parse(req.body);
+    const payload = Object.fromEntries(
+      Object.entries(rawPayload).filter(([, value]) => value !== undefined),
+    ) as PlatformSupportUserUpdateRequest;
+    const item = await updateSupportTenantUser({
+      tenantId,
+      userId,
+      platformUserId: req.auth!.sub,
+      payload,
+    });
+    res.json({
+      item,
+    });
+  }),
+);
+
+platformRouter.post(
+  '/support/tenants/:tenantId/users/:userId/reset-account',
+  platformSupportModeMiddleware,
+  asyncHandler(async (req, res) => {
+    const { tenantId, userId } = supportUserParamsSchema.parse(req.params);
+    const payload = supportUserResetSchema.parse(req.body);
+    const result = await resetSupportTenantUserAccount({
+      tenantId,
+      userId,
+      platformUserId: req.auth!.sub,
+      password: payload.password,
+    });
+    res.json(result);
   }),
 );
 

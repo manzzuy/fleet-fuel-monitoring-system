@@ -25,3 +25,22 @@ export function platformAuthMiddleware(req: Request, _res: Response, next: NextF
     next(new AppError(401, 'invalid_token', 'Access token is invalid or expired.'));
   }
 }
+
+export function platformSupportModeMiddleware(req: Request, _res: Response, next: NextFunction) {
+  const claims = req.auth;
+  if (!claims || claims.actor_type !== 'PLATFORM' || claims.role !== 'PLATFORM_OWNER') {
+    return next(new AppError(403, 'platform_auth_required', 'Platform owner access is required.'));
+  }
+
+  if (!claims.support_mode) {
+    return next(
+      new AppError(
+        403,
+        'support_mode_required',
+        'Support mode is required. Enter support mode before modifying tenant users.',
+      ),
+    );
+  }
+
+  return next();
+}

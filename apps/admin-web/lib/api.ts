@@ -22,6 +22,10 @@ import type {
   OnboardingPreviewResponse,
   PlatformLoginRequest,
   PlatformLoginResponse,
+  PlatformSupportModeResponse,
+  PlatformSupportTenantUsersResponse,
+  PlatformSupportUserResetRequest,
+  PlatformSupportUserUpdateRequest,
   PlatformTenantRecord,
   DriverLookupRecord,
   SiteLookupRecord,
@@ -174,6 +178,70 @@ export async function createTenant(
   });
 
   return parseJson<PlatformTenantRecord>(response);
+}
+
+export async function enterPlatformSupportMode(accessToken: string): Promise<PlatformSupportModeResponse> {
+  const response = await fetch(`${appConfig.apiBaseUrl}/platform/support-mode/enter`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  return parseJson<PlatformSupportModeResponse>(response);
+}
+
+export async function listPlatformSupportTenantUsers(
+  accessToken: string,
+  tenantId: string,
+): Promise<PlatformSupportTenantUsersResponse> {
+  const response = await fetch(`${appConfig.apiBaseUrl}/platform/support/tenants/${tenantId}/users`, {
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+    },
+    cache: 'no-store',
+  });
+
+  return parseJson<PlatformSupportTenantUsersResponse>(response);
+}
+
+export async function updatePlatformSupportTenantUser(
+  accessToken: string,
+  tenantId: string,
+  userId: string,
+  payload: PlatformSupportUserUpdateRequest,
+): Promise<{ item: PlatformSupportTenantUsersResponse['items'][number] }> {
+  const response = await fetch(`${appConfig.apiBaseUrl}/platform/support/tenants/${tenantId}/users/${userId}`, {
+    method: 'PATCH',
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<{ item: PlatformSupportTenantUsersResponse['items'][number] }>(response);
+}
+
+export async function resetPlatformSupportTenantUserAccount(
+  accessToken: string,
+  tenantId: string,
+  userId: string,
+  payload: PlatformSupportUserResetRequest,
+): Promise<{ user_id: string; tenant_id: string; password_reset: boolean }> {
+  const response = await fetch(
+    `${appConfig.apiBaseUrl}/platform/support/tenants/${tenantId}/users/${userId}/reset-account`,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  return parseJson<{ user_id: string; tenant_id: string; password_reset: boolean }>(response);
 }
 
 export async function fetchTenantedHealth(

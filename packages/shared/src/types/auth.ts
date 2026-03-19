@@ -22,4 +22,5 @@ export interface JwtAccessTokenClaims {
   tenant_id: string | null;
   role: AuthRole;
   actor_type: ActorType;
+  support_mode?: boolean;
 }

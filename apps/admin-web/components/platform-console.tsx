@@ -6,6 +6,7 @@ import type {
   OnboardingPreflightResponse,
   OnboardingPreviewResponse,
   OperatorAssistantResponse,
+  PlatformSupportTenantUserRecord,
   PlatformTenantRecord,
 } from '@fleet-fuel/shared';
 
@@ -15,10 +16,14 @@ import {
   commitOnboardingBatch,
   createOnboardingBatch,
   createTenant,
+  enterPlatformSupportMode,
   fetchOnboardingPreview,
   listTenants,
+  listPlatformSupportTenantUsers,
   onboardingPreflight,
   platformLogin,
+  resetPlatformSupportTenantUserAccount,
+  updatePlatformSupportTenantUser,
   uploadOnboardingWorkbook,
 } from '../lib/api';
 import { appConfig } from '../lib/config';
@@ -34,8 +39,39 @@ const previewSheets = [
   'Equipment',
 ] as Array<keyof OnboardingPreviewResponse['sheets']>;
 
+function tokenHasSupportMode(token: string): boolean {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) {
+      return false;
+    }
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    const json = JSON.parse(window.atob(padded));
+    return json?.support_mode === true;
+  } catch {
+    return false;
+  }
+}
+
 export function PlatformConsole() {
   const [token, setToken] = useState<string | null>(null);
+  const [supportMode, setSupportMode] = useState(false);
+  const [supportBusy, setSupportBusy] = useState(false);
+  const [supportError, setSupportError] = useState<string | null>(null);
+  const [supportSuccess, setSupportSuccess] = useState<string | null>(null);
+  const [supportUsers, setSupportUsers] = useState<PlatformSupportTenantUserRecord[]>([]);
+  const [supportSelectedUserId, setSupportSelectedUserId] = useState('');
+  const [supportRole, setSupportRole] = useState<PlatformSupportTenantUserRecord['role']>('DRIVER');
+  const [supportFullName, setSupportFullName] = useState('');
+  const [supportUsername, setSupportUsername] = useState('');
+  const [supportEmployeeNo, setSupportEmployeeNo] = useState('');
+  const [supportEmail, setSupportEmail] = useState('');
+  const [supportSiteId, setSupportSiteId] = useState('');
+  const [supportSiteIds, setSupportSiteIds] = useState('');
+  const [supportAssignedVehicleId, setSupportAssignedVehicleId] = useState('');
+  const [supportIsActive, setSupportIsActive] = useState(true);
+  const [supportResetPassword, setSupportResetPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [tenantError, setTenantError] = useState<string | null>(null);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
@@ -71,16 +107,22 @@ export function PlatformConsole() {
     const stored = window.localStorage.getItem('platform_access_token');
     if (stored) {
       setToken(stored);
+      setSupportMode(tokenHasSupportMode(stored));
     }
   }, []);
 
   useEffect(() => {
     if (!token) {
+      setSupportMode(false);
       setTenants([]);
       setPreflight(null);
       setPreflightError(null);
+      setSupportUsers([]);
+      setSupportSelectedUserId('');
       return;
     }
+
+    setSupportMode(tokenHasSupportMode(token));
 
     void refreshTenants(token);
     void loadPreflight(token);
@@ -93,6 +135,14 @@ export function PlatformConsole() {
 
     void loadPreflight(token);
   }, [token, selectedTenantId]);
+
+  useEffect(() => {
+    if (!token || !supportMode || !selectedTenantId) {
+      return;
+    }
+
+    void loadSupportUsers(token, selectedTenantId);
+  }, [token, supportMode, selectedTenantId]);
 
   async function loadPreflight(accessToken: string) {
     setPreflightLoading(true);
@@ -147,6 +197,41 @@ export function PlatformConsole() {
     }
   }
 
+  function hydrateSupportForm(user: PlatformSupportTenantUserRecord) {
+    setSupportSelectedUserId(user.id);
+    setSupportRole(user.role);
+    setSupportFullName(user.full_name);
+    setSupportUsername(user.username ?? '');
+    setSupportEmployeeNo(user.employee_no ?? '');
+    setSupportEmail(user.email ?? '');
+    setSupportSiteId(user.site_id ?? '');
+    setSupportSiteIds(user.site_ids.join(','));
+    setSupportAssignedVehicleId(user.assigned_vehicle_id ?? '');
+    setSupportIsActive(user.is_active);
+    setSupportResetPassword('');
+  }
+
+  async function loadSupportUsers(accessToken: string, tenantId: string) {
+    setSupportBusy(true);
+    setSupportError(null);
+    setSupportSuccess(null);
+
+    try {
+      const response = await listPlatformSupportTenantUsers(accessToken, tenantId);
+      setSupportUsers(response.items);
+      const selected = response.items.find((item) => item.id === supportSelectedUserId) ?? response.items[0];
+      if (selected) {
+        hydrateSupportForm(selected);
+      } else {
+        setSupportSelectedUserId('');
+      }
+    } catch (error) {
+      setSupportError(error instanceof Error ? error.message : 'Unable to load tenant users for support mode.');
+    } finally {
+      setSupportBusy(false);
+    }
+  }
+
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoginError(null);
@@ -155,6 +240,7 @@ export function PlatformConsole() {
       const response = await platformLogin({ email, password });
       window.localStorage.setItem('platform_access_token', response.access_token);
       setToken(response.access_token);
+      setSupportMode(Boolean(response.support_mode));
       setPassword('');
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : 'Platform login failed.');
@@ -205,6 +291,9 @@ export function PlatformConsole() {
   function handleLogout() {
     window.localStorage.removeItem('platform_access_token');
     setToken(null);
+    setSupportMode(false);
+    setSupportError(null);
+    setSupportSuccess(null);
     setTenants([]);
     setPreview(null);
     setCurrentBatchId(null);
@@ -316,6 +405,86 @@ export function PlatformConsole() {
     }
   }
 
+  async function handleEnterSupportMode() {
+    if (!token) {
+      return;
+    }
+
+    setSupportBusy(true);
+    setSupportError(null);
+    setSupportSuccess(null);
+
+    try {
+      const response = await enterPlatformSupportMode(token);
+      window.localStorage.setItem('platform_access_token', response.access_token);
+      setToken(response.access_token);
+      setSupportMode(true);
+      setSupportSuccess('Support mode enabled. Tenant user support actions are now available and fully audited.');
+    } catch (error) {
+      setSupportError(error instanceof Error ? error.message : 'Unable to enter support mode.');
+    } finally {
+      setSupportBusy(false);
+    }
+  }
+
+  async function handleSaveSupportUser(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!token || !selectedTenantId || !supportSelectedUserId) {
+      return;
+    }
+
+    setSupportBusy(true);
+    setSupportError(null);
+    setSupportSuccess(null);
+
+    try {
+      const siteIds = supportSiteIds
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+      await updatePlatformSupportTenantUser(token, selectedTenantId, supportSelectedUserId, {
+        role: supportRole,
+        full_name: supportFullName,
+        username: supportUsername || null,
+        employee_no: supportEmployeeNo || null,
+        email: supportEmail || null,
+        is_active: supportIsActive,
+        site_id: supportSiteId || null,
+        site_ids: siteIds,
+        assigned_vehicle_id: supportAssignedVehicleId || null,
+      });
+      await loadSupportUsers(token, selectedTenantId);
+      setSupportSuccess('Support update saved and audited.');
+    } catch (error) {
+      setSupportError(error instanceof Error ? error.message : 'Unable to save support changes.');
+    } finally {
+      setSupportBusy(false);
+    }
+  }
+
+  async function handleResetSupportAccount() {
+    if (!token || !selectedTenantId || !supportSelectedUserId || !supportResetPassword) {
+      return;
+    }
+
+    setSupportBusy(true);
+    setSupportError(null);
+    setSupportSuccess(null);
+
+    try {
+      await resetPlatformSupportTenantUserAccount(token, selectedTenantId, supportSelectedUserId, {
+        password: supportResetPassword,
+      });
+      setSupportResetPassword('');
+      setSupportSuccess('Account password reset completed and audited.');
+    } catch (error) {
+      setSupportError(error instanceof Error ? error.message : 'Unable to reset account.');
+    } finally {
+      setSupportBusy(false);
+    }
+  }
+
   const activeSheet = preview ? preview.sheets[activePreviewSheet] : null;
 
   return (
@@ -354,6 +523,166 @@ export function PlatformConsole() {
         </section>
       ) : (
         <>
+          <section className="card">
+            <div className="toolbar">
+              <div>
+                <h2>Platform support override</h2>
+                <p>
+                  Hidden break-glass support mode for platform operations only. All support mode entries and tenant
+                  user changes are audited.
+                </p>
+              </div>
+              {!supportMode ? (
+                <button className="button button-secondary" type="button" onClick={handleEnterSupportMode} disabled={supportBusy}>
+                  Enter Support Mode
+                </button>
+              ) : (
+                <span className="status">Support mode active</span>
+              )}
+            </div>
+            {supportError ? <p className="status error">{supportError}</p> : null}
+            {supportSuccess ? <p className="status">{supportSuccess}</p> : null}
+          </section>
+
+          {supportMode ? (
+            <section className="card" data-testid="platform-support-mode-panel">
+              <h2>Support mode: tenant user recovery</h2>
+              <p>Use this only for support and pilot setup. Every update writes an audit log entry.</p>
+              <div className="stack">
+                <label className="field">
+                  <span>Target tenant</span>
+                  <select
+                    value={selectedTenantId}
+                    onChange={(event) => setSelectedTenantId(event.target.value)}
+                    required
+                  >
+                    <option value="">Select tenant</option>
+                    {tenants.map((tenant) => (
+                      <option key={tenant.id} value={tenant.id}>
+                        {tenant.name} ({tenant.primary_subdomain})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  onClick={() => (token && selectedTenantId ? void loadSupportUsers(token, selectedTenantId) : undefined)}
+                  disabled={!selectedTenantId || supportBusy}
+                >
+                  {supportBusy ? 'Loading…' : 'Load tenant users'}
+                </button>
+                {supportUsers.length > 0 ? (
+                  <label className="field">
+                    <span>User</span>
+                    <select
+                      value={supportSelectedUserId}
+                      onChange={(event) => {
+                        const next = supportUsers.find((item) => item.id === event.target.value);
+                        if (next) {
+                          hydrateSupportForm(next);
+                        } else {
+                          setSupportSelectedUserId(event.target.value);
+                        }
+                      }}
+                      required
+                    >
+                      {supportUsers.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.full_name} ({user.role}){user.username ? ` - ${user.username}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+
+                {supportSelectedUserId ? (
+                  <form className="stack" onSubmit={handleSaveSupportUser}>
+                    <label className="field">
+                      <span>Role</span>
+                      <select
+                        value={supportRole}
+                        onChange={(event) => setSupportRole(event.target.value as PlatformSupportTenantUserRecord['role'])}
+                      >
+                        <option value="TRANSPORT_MANAGER">Transport Manager</option>
+                        <option value="TENANT_ADMIN">Tenant Admin</option>
+                        <option value="SITE_SUPERVISOR">Site Supervisor</option>
+                        <option value="SAFETY_OFFICER">Safety Officer</option>
+                        <option value="DRIVER">Driver</option>
+                        <option value="COMPANY_ADMIN">Company Admin</option>
+                        <option value="SUPERVISOR">Supervisor</option>
+                        <option value="HEAD_OFFICE_ADMIN">Head Office Admin</option>
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>Full name</span>
+                      <input value={supportFullName} onChange={(event) => setSupportFullName(event.target.value)} required />
+                    </label>
+                    <label className="field">
+                      <span>Username</span>
+                      <input value={supportUsername} onChange={(event) => setSupportUsername(event.target.value)} required />
+                    </label>
+                    <label className="field">
+                      <span>Email</span>
+                      <input value={supportEmail} onChange={(event) => setSupportEmail(event.target.value)} placeholder="optional" />
+                    </label>
+                    <label className="field">
+                      <span>Employee No</span>
+                      <input value={supportEmployeeNo} onChange={(event) => setSupportEmployeeNo(event.target.value)} />
+                    </label>
+                    <label className="field">
+                      <span>Primary site ID (single-site roles)</span>
+                      <input value={supportSiteId} onChange={(event) => setSupportSiteId(event.target.value)} />
+                    </label>
+                    <label className="field">
+                      <span>Site IDs (comma-separated for Safety Officer)</span>
+                      <input
+                        value={supportSiteIds}
+                        onChange={(event) => setSupportSiteIds(event.target.value)}
+                        placeholder="uuid-1,uuid-2"
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Assigned vehicle ID (Driver only)</span>
+                      <input
+                        value={supportAssignedVehicleId}
+                        onChange={(event) => setSupportAssignedVehicleId(event.target.value)}
+                      />
+                    </label>
+                    <label className="checkbox-field">
+                      <input
+                        type="checkbox"
+                        checked={supportIsActive}
+                        onChange={(event) => setSupportIsActive(event.target.checked)}
+                      />
+                      <span>Account active</span>
+                    </label>
+                    <button className="button" type="submit" disabled={supportBusy}>
+                      Save support changes
+                    </button>
+                    <label className="field">
+                      <span>Reset account password</span>
+                      <input
+                        type="password"
+                        value={supportResetPassword}
+                        onChange={(event) => setSupportResetPassword(event.target.value)}
+                        placeholder="minimum 10 chars"
+                      />
+                    </label>
+                    <button
+                      className="button button-secondary"
+                      type="button"
+                      onClick={handleResetSupportAccount}
+                      disabled={supportBusy || supportResetPassword.length < 10}
+                    >
+                      Reset account password
+                    </button>
+                  </form>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+
           <section className="card">
             <div className="toolbar">
               <div>

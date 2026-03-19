@@ -43,6 +43,7 @@ export const platformLoginResponseSchema = z.object({
   tenant_id: z.null(),
   role: z.literal('PLATFORM_OWNER'),
   actor_type: z.literal('PLATFORM'),
+  support_mode: z.boolean().optional(),
 });
 
 export const createTenantRequestSchema = z.object({
