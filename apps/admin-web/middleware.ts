@@ -37,6 +37,20 @@ export function middleware(request: NextRequest) {
   const hostTenant = extractHostTenant(request.headers.get('host'), platformBaseDomain);
   const pathname = request.nextUrl.pathname;
   const forcedTenantFromCookie = normalizeTenant(request.cookies.get(TENANT_FORCE_PASSWORD_COOKIE)?.value ?? null);
+  const currentTenant = tenantFromQuery ?? tenantFromCookie ?? hostTenant;
+
+  if (
+    forcedTenantFromCookie &&
+    currentTenant === forcedTenantFromCookie &&
+    pathname !== '/' &&
+    pathname !== CHANGE_PASSWORD_PATH &&
+    !pathname.startsWith('/_next')
+  ) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = CHANGE_PASSWORD_PATH;
+    redirectUrl.searchParams.set(TENANT_QUERY_PARAM, forcedTenantFromCookie);
+    return NextResponse.redirect(redirectUrl);
+  }
 
   if (tenantFromQuery) {
     const response = NextResponse.next();
@@ -47,19 +61,6 @@ export function middleware(request: NextRequest) {
       secure: request.nextUrl.protocol === 'https:',
     });
     return response;
-  }
-
-  if (
-    forcedTenantFromCookie &&
-    (tenantFromCookie === forcedTenantFromCookie || hostTenant === forcedTenantFromCookie) &&
-    pathname !== '/' &&
-    pathname !== CHANGE_PASSWORD_PATH &&
-    !pathname.startsWith('/_next')
-  ) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = CHANGE_PASSWORD_PATH;
-    redirectUrl.searchParams.set(TENANT_QUERY_PARAM, forcedTenantFromCookie);
-    return NextResponse.redirect(redirectUrl);
   }
 
   // Keep root path available for Platform Owner console on non-tenant hosts.
