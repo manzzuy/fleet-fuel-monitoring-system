@@ -34,7 +34,7 @@ function optionalSites(
   promise: Promise<{ items: Array<{ id: string; site_code: string; site_name: string }> }>,
 ) {
   return promise.catch((error) => {
-    if (error instanceof ApiClientError && error.code === 'forbidden') {
+    if (error instanceof ApiClientError && error.code?.startsWith('forbidden_')) {
       return { items: [] };
     }
     throw error;
