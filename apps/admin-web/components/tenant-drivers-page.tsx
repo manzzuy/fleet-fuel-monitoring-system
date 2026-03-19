@@ -48,6 +48,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
   const [sites, setSites] = useState<Array<{ id: string; site_code: string; site_name: string }>>([]);
   const [vehicles, setVehicles] = useState<Array<{ id: string; fleet_no: string; plate_no: string | null }>>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [profileDriverId, setProfileDriverId] = useState<string | null>(null);
   const [driverForm, setDriverForm] = useState({
     role: 'DRIVER' as 'DRIVER' | 'SITE_SUPERVISOR' | 'SAFETY_OFFICER' | 'TENANT_ADMIN',
     full_name: '',
@@ -138,6 +139,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     }
     setEditingId('new');
     setSelectedDriverId('');
+    setProfileDriverId(null);
     setDriverForm({
       role: 'DRIVER',
       full_name: '',
@@ -157,6 +159,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     }
     setEditingId(row.id);
     setSelectedDriverId(row.id);
+    setProfileDriverId(null);
     setDriverForm({
       role: (row.role as 'DRIVER' | 'SITE_SUPERVISOR' | 'SAFETY_OFFICER' | 'TENANT_ADMIN') ?? 'DRIVER',
       full_name: row.full_name,
@@ -245,6 +248,8 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
       setSelectedDriverId(rows[0]!.id);
     }
   }, [rows, selectedDriverId]);
+
+  const profileDriver = profileDriverId ? rows.find((item) => item.id === profileDriverId) ?? null : null;
 
   function handleLogout() {
     if (subdomain) {
@@ -475,7 +480,18 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
             {rows.map((row) => (
               <Fragment key={row.id}>
                 <div className={`table-row drivers-master-row ${editingId === row.id ? 'row-highlight' : ''}`}>
-                  <span>{row.full_name}</span>
+                  <span>
+                    <button
+                      className="profile-link-button"
+                      type="button"
+                      onClick={() => {
+                        setProfileDriverId(row.id);
+                        setSelectedDriverId(row.id);
+                      }}
+                    >
+                      {row.full_name}
+                    </button>
+                  </span>
                   <span>{row.role ? row.role.replaceAll('_', ' ') : 'DRIVER'}</span>
                   <span>{row.employee_no ?? '—'}</span>
                   <span>{row.username ?? '—'}</span>
@@ -498,7 +514,10 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                         className="button button-secondary edit-icon-button"
                         title="Edit driver"
                         type="button"
-                        onClick={() => startEdit(row)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          startEdit(row);
+                        }}
                       >
                         ✎
                       </button>
@@ -695,6 +714,81 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
         ) : null}
         {driverMessage ? <p className={driverMessage.includes('Unable') ? 'status error' : 'status'}>{driverMessage}</p> : null}
       </section>
+      {profileDriver ? (
+        <aside className="profile-drawer" data-testid="user-profile-drawer">
+          <div className="profile-drawer-header">
+            <h3>User Profile</h3>
+            <button
+              aria-label="Close profile"
+              className="button button-secondary"
+              type="button"
+              onClick={() => setProfileDriverId(null)}
+            >
+              Close
+            </button>
+          </div>
+          <div className="profile-grid">
+            <div>
+              <span className="profile-label">Name</span>
+              <strong>{profileDriver.full_name}</strong>
+            </div>
+            <div>
+              <span className="profile-label">Role</span>
+              <strong>{(profileDriver.role ?? 'DRIVER').replaceAll('_', ' ')}</strong>
+            </div>
+            <div>
+              <span className="profile-label">Status</span>
+              <strong>{profileDriver.is_active ? 'Active' : 'Inactive'}</strong>
+            </div>
+            <div>
+              <span className="profile-label">Employer</span>
+              <strong>{subdomain?.toUpperCase() ?? 'Tenant'}</strong>
+            </div>
+            <div>
+              <span className="profile-label">Employee no / ID</span>
+              <strong>{profileDriver.employee_no ?? '—'}</strong>
+            </div>
+            <div>
+              <span className="profile-label">Username</span>
+              <strong>{profileDriver.username ?? '—'}</strong>
+            </div>
+            <div>
+              <span className="profile-label">Site</span>
+              <strong>{formatSiteDisplayName(profileDriver.site)}</strong>
+            </div>
+            <div>
+              <span className="profile-label">Assigned vehicle</span>
+              <strong>
+                {profileDriver.assigned_vehicle
+                  ? `${formatFleetCode(profileDriver.assigned_vehicle.fleet_no)}`
+                  : 'Unassigned'}
+              </strong>
+            </div>
+          </div>
+          <div className="profile-section">
+            <h4>Training / Compliance</h4>
+            {complianceRows.length === 0 ? <p className="status">No records.</p> : null}
+            {complianceRows.length > 0 ? (
+              <div className="table">
+                <div className="table-row table-head drivers-table-row">
+                  <span>Type</span>
+                  <span>Expiry</span>
+                  <span>Status</span>
+                  <span>Reference</span>
+                </div>
+                {complianceRows.map((compliance) => (
+                  <div className="table-row drivers-table-row" key={compliance.id}>
+                    <span>{compliance.type.name}</span>
+                    <span>{compliance.expiry_date ?? '—'}</span>
+                    <span>{compliance.is_expired ? 'Expired' : compliance.is_expiring_soon ? 'Expiring soon' : 'Valid'}</span>
+                    <span>{compliance.reference_number ?? '—'}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </aside>
+      ) : null}
     </TenantSidebarLayout>
   );
 }

@@ -607,6 +607,72 @@ dd {
   line-height: 1;
 }
 
+.profile-link-button {
+  border: 0;
+  background: transparent;
+  color: #0f4f7a;
+  font: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.profile-link-button:hover {
+  color: #0b3450;
+}
+
+.profile-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(460px, 94vw);
+  height: 100vh;
+  background: #fff;
+  border-left: 1px solid var(--border);
+  box-shadow: -12px 0 28px rgba(15, 36, 59, 0.15);
+  padding: 20px;
+  z-index: 40;
+  overflow-y: auto;
+  display: grid;
+  gap: 16px;
+}
+
+.profile-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-drawer-header h3 {
+  margin: 0;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.profile-grid > div {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.profile-label {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.profile-section h4 {
+  margin: 0 0 8px;
+}
+
 .edit-actions {
   grid-column: 1 / -1;
   display: flex;
@@ -1000,5 +1066,14 @@ dd {
   [data-testid='settings-monitoring-module'] > dl,
   [data-testid='settings-system-status-module'] {
     grid-column: 1 / -1;
+  }
+
+  .profile-drawer {
+    width: 100vw;
+    padding: 14px;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1fr;
   }
 }

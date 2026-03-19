@@ -49,6 +49,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
   const [sites, setSites] = useState<Array<{ id: string; site_code: string; site_name: string }>>([]);
   const [drivers, setDrivers] = useState<Array<{ id: string; full_name: string }>>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [profileVehicleId, setProfileVehicleId] = useState<string | null>(null);
   const [vehicleForm, setVehicleForm] = useState({
     fleet_no: '',
     plate_no: '',
@@ -136,6 +137,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
     }
     setEditingId('new');
     setSelectedVehicleId('');
+    setProfileVehicleId(null);
     setVehicleForm({
       fleet_no: '',
       plate_no: '',
@@ -156,6 +158,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
     }
     setEditingId(row.id);
     setSelectedVehicleId(row.id);
+    setProfileVehicleId(null);
     setVehicleForm({
       fleet_no: row.fleet_no,
       plate_no: row.plate_no ?? '',
@@ -259,6 +262,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
   }
 
   const selectedVehicle = selectedVehicleId ? rows.find((row) => row.id === selectedVehicleId) ?? null : null;
+  const profileVehicle = profileVehicleId ? rows.find((row) => row.id === profileVehicleId) ?? null : null;
 
   function resetComplianceForm() {
     setComplianceCategory('COMPLIANCE');
@@ -451,7 +455,18 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
             {rows.map((row) => (
               <Fragment key={row.id}>
                 <div className={`table-row vehicles-master-row ${editingId === row.id ? 'row-highlight' : ''}`}>
-                  <span>{formatFleetCode(row.fleet_no)}</span>
+                  <span>
+                    <button
+                      className="profile-link-button"
+                      type="button"
+                      onClick={() => {
+                        setProfileVehicleId(row.id);
+                        setSelectedVehicleId(row.id);
+                      }}
+                    >
+                      {formatFleetCode(row.fleet_no)}
+                    </button>
+                  </span>
                   <span>{row.plate_no ? formatFleetCode(row.plate_no) : '—'}</span>
                   <span>{formatSiteDisplayName(row.site)}</span>
                   <span>
@@ -466,7 +481,10 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
                         className="button button-secondary edit-icon-button"
                         title="Edit vehicle"
                         type="button"
-                        onClick={() => startEdit(row)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          startEdit(row);
+                        }}
                       >
                         ✎
                       </button>
@@ -659,6 +677,89 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
           </div>
         ) : null}
       </section>
+      {profileVehicle ? (
+        <aside className="profile-drawer" data-testid="vehicle-profile-drawer">
+          <div className="profile-drawer-header">
+            <h3>Vehicle Profile</h3>
+            <button
+              aria-label="Close profile"
+              className="button button-secondary"
+              type="button"
+              onClick={() => setProfileVehicleId(null)}
+            >
+              Close
+            </button>
+          </div>
+          <div className="profile-grid">
+            <div>
+              <span className="profile-label">Vehicle code</span>
+              <strong>{formatFleetCode(profileVehicle.fleet_no)}</strong>
+            </div>
+            <div>
+              <span className="profile-label">Plate</span>
+              <strong>{profileVehicle.plate_no ? formatFleetCode(profileVehicle.plate_no) : '—'}</strong>
+            </div>
+            <div>
+              <span className="profile-label">Site</span>
+              <strong>{formatSiteDisplayName(profileVehicle.site)}</strong>
+            </div>
+            <div>
+              <span className="profile-label">Asset type</span>
+              <strong>Vehicle</strong>
+            </div>
+            <div>
+              <span className="profile-label">Owner</span>
+              <strong>{subdomain?.toUpperCase() ?? 'Tenant'}</strong>
+            </div>
+            <div>
+              <span className="profile-label">Assigned driver</span>
+              <strong>{profileVehicle.assigned_driver?.full_name ?? 'Unassigned'}</strong>
+            </div>
+            <div>
+              <span className="profile-label">Odometer</span>
+              <strong>{profileVehicle.last_service_odometer_km ?? '—'} km</strong>
+            </div>
+            <div>
+              <span className="profile-label">Status</span>
+              <strong>{profileVehicle.is_active ? 'Active' : 'Inactive'}</strong>
+            </div>
+            <div>
+              <span className="profile-label">Last service date</span>
+              <strong>{profileVehicle.last_service_date ?? '—'}</strong>
+            </div>
+            <div>
+              <span className="profile-label">Next service due km</span>
+              <strong>{profileVehicle.next_service_odometer_km ?? '—'}</strong>
+            </div>
+            <div>
+              <span className="profile-label">Service interval km</span>
+              <strong>{profileVehicle.service_interval_km ?? '—'}</strong>
+            </div>
+          </div>
+          <div className="profile-section">
+            <h4>Compliance / Inspection</h4>
+            {complianceRows.length === 0 ? <p className="status">No records.</p> : null}
+            {complianceRows.length > 0 ? (
+              <div className="table">
+                <div className="table-row table-head vehicles-table-row">
+                  <span>Type</span>
+                  <span>Expiry</span>
+                  <span>Status</span>
+                  <span>Reference</span>
+                </div>
+                {complianceRows.map((compliance) => (
+                  <div className="table-row vehicles-table-row" key={compliance.id}>
+                    <span>{compliance.type.name}</span>
+                    <span>{compliance.expiry_date ?? '—'}</span>
+                    <span>{compliance.is_expired ? 'Expired' : compliance.is_expiring_soon ? 'Expiring soon' : 'Valid'}</span>
+                    <span>{compliance.reference_number ?? '—'}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </aside>
+      ) : null}
     </TenantSidebarLayout>
   );
 }
