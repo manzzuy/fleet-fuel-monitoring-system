@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import type { TenantStaffRole } from '../lib/tenant-session';
 import { getTenantRole } from '../lib/tenant-session';
-import { formatRoleLabel, isSafetyOfficerRole, isSiteSupervisorRole } from '../lib/roles';
+import { canAccessTenantAdminPath, formatRoleLabel, isSafetyOfficerRole, isSiteSupervisorRole } from '../lib/roles';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', testId: 'nav-dashboard' },
@@ -51,6 +51,7 @@ export function TenantSidebarLayout({
   children,
 }: TenantSidebarLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [tokenRole, setTokenRole] = useState<TenantStaffRole | null>(null);
 
   useEffect(() => {
@@ -60,6 +61,16 @@ export function TenantSidebarLayout({
 
   const effectiveRole = role ?? tokenRole;
   const visibleNavItems = getNavItems(effectiveRole);
+
+  useEffect(() => {
+    if (!effectiveRole) {
+      return;
+    }
+
+    if (!canAccessTenantAdminPath(effectiveRole, pathname)) {
+      router.replace('/dashboard');
+    }
+  }, [effectiveRole, pathname, router]);
 
   return (
     <div className="tenant-layout" data-testid="tenant-layout">

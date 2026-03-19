@@ -265,6 +265,28 @@ describe('Tenant internal site scoping', () => {
     expect(tanksAccess.body.error.code).toBe('forbidden_tanks_access');
   });
 
+  it('SITE_SUPERVISOR cannot access governance routes', async () => {
+    const fixture = await seedScopedFixture();
+    const token = makeToken(fixture.supervisor.id, fixture.tenant.id, UserRole.SITE_SUPERVISOR);
+
+    const [settingsAccess, sitesAccess] = await Promise.all([
+      request(app)
+        .get('/tenanted/tenant/settings')
+        .set('host', 'scoped.platform.test')
+        .set('authorization', `Bearer ${token}`),
+      request(app)
+        .get('/tenanted/sites')
+        .set('host', 'scoped.platform.test')
+        .set('authorization', `Bearer ${token}`),
+    ]);
+
+    expect(settingsAccess.status).toBe(403);
+    expect(settingsAccess.body.error.code).toBe('forbidden_settings_access');
+
+    expect(sitesAccess.status).toBe(403);
+    expect(sitesAccess.body.error.code).toBe('forbidden_sites_access');
+  });
+
   it('SAFETY_OFFICER can view assigned sites and remains read-only', async () => {
     const fixture = await seedScopedFixture();
     const token = makeToken(fixture.safetyOfficer.id, fixture.tenant.id, UserRole.SAFETY_OFFICER);
@@ -286,6 +308,35 @@ describe('Tenant internal site scoping', () => {
 
     expect(writeAttempt.status).toBe(403);
     expect(writeAttempt.body.error.code).toBe('forbidden_read_only_role_write');
+  });
+
+  it('SAFETY_OFFICER cannot access governance routes', async () => {
+    const fixture = await seedScopedFixture();
+    const token = makeToken(fixture.safetyOfficer.id, fixture.tenant.id, UserRole.SAFETY_OFFICER);
+
+    const [settingsAccess, sitesAccess, tanksAccess] = await Promise.all([
+      request(app)
+        .get('/tenanted/tenant/settings')
+        .set('host', 'scoped.platform.test')
+        .set('authorization', `Bearer ${token}`),
+      request(app)
+        .get('/tenanted/sites')
+        .set('host', 'scoped.platform.test')
+        .set('authorization', `Bearer ${token}`),
+      request(app)
+        .get('/tenanted/tanks')
+        .set('host', 'scoped.platform.test')
+        .set('authorization', `Bearer ${token}`),
+    ]);
+
+    expect(settingsAccess.status).toBe(403);
+    expect(settingsAccess.body.error.code).toBe('forbidden_settings_access');
+
+    expect(sitesAccess.status).toBe(403);
+    expect(sitesAccess.body.error.code).toBe('forbidden_sites_access');
+
+    expect(tanksAccess.status).toBe(403);
+    expect(tanksAccess.body.error.code).toBe('forbidden_tanks_access');
   });
 
   it('TRANSPORT_MANAGER has full tenant visibility', async () => {
@@ -320,7 +371,7 @@ describe('Tenant internal site scoping', () => {
     );
   });
 
-  it('SITE_SUPERVISOR with no assignments receives explicit no_site_scope_assigned state', async () => {
+  it('SITE_SUPERVISOR with no assignments receives explicit no_site_scope_assigned state on allowed routes', async () => {
     const tenant = await prisma.tenant.create({
       data: {
         name: 'Unassigned Tenant',
@@ -344,7 +395,7 @@ describe('Tenant internal site scoping', () => {
     const token = makeToken(supervisor.id, tenant.id, UserRole.SITE_SUPERVISOR);
 
     const response = await request(app)
-      .get('/tenanted/sites')
+      .get('/tenanted/vehicles')
       .set('host', 'unassigned.platform.test')
       .set('authorization', `Bearer ${token}`);
 

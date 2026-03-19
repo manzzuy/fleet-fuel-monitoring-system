@@ -145,9 +145,13 @@ function ensureRestrictedReadOnlyRole(role: string) {
   }
 }
 
-function ensureSiteSupervisorPageAccess(role: string, area: 'tanks') {
-  if (role === 'SITE_SUPERVISOR') {
-    throw new AppError(403, `forbidden_${area}_access`, `Site supervisors cannot access ${area}.`);
+function ensureRestrictedRolePageAccess(role: string, area: 'settings' | 'sites' | 'tanks') {
+  if (role === 'SITE_SUPERVISOR' || role === 'SAFETY_OFFICER') {
+    throw new AppError(
+      403,
+      `forbidden_${area}_access`,
+      `${role === 'SITE_SUPERVISOR' ? 'Site supervisors' : 'Safety officers'} cannot access ${area}.`,
+    );
   }
 }
 
@@ -482,6 +486,7 @@ tenantedRouter.get(
   '/sites',
   ...staffAuth,
   asyncHandler(async (req, res) => {
+    ensureRestrictedRolePageAccess(req.auth!.role, 'sites');
     const query = lookupQuerySchema.parse(req.query);
     const sites = await listTenantSites(req.tenant!.id, req.dataScope!, query.search, query.limit);
 
@@ -543,7 +548,7 @@ tenantedRouter.get(
   '/tanks',
   ...staffAuth,
   asyncHandler(async (req, res) => {
-    ensureSiteSupervisorPageAccess(req.auth!.role, 'tanks');
+    ensureRestrictedRolePageAccess(req.auth!.role, 'tanks');
     const query = lookupQuerySchema.parse(req.query);
     const tanks = await listTenantTanks(req.tenant!.id, req.dataScope!, query.search, query.limit);
 
@@ -663,6 +668,7 @@ tenantedRouter.get(
   '/tenant/settings',
   ...staffAuth,
   asyncHandler(async (req, res) => {
+    ensureRestrictedRolePageAccess(req.auth!.role, 'settings');
     const result = await getTenantSettings(req.tenant!, req.auth!, req.dataScope!, req.requestId);
     res.json(result);
   }),
@@ -672,6 +678,7 @@ tenantedRouter.get(
   '/notification-contacts',
   ...staffAuth,
   asyncHandler(async (req, res) => {
+    ensureRestrictedRolePageAccess(req.auth!.role, 'settings');
     ensureCanManageContacts(req.auth!, req.dataScope!);
     const items = await listContacts(req.tenant!.id);
     res.json({
@@ -685,6 +692,7 @@ tenantedRouter.post(
   '/notification-contacts',
   ...staffAuth,
   asyncHandler(async (req, res) => {
+    ensureRestrictedRolePageAccess(req.auth!.role, 'settings');
     ensureCanManageContacts(req.auth!, req.dataScope!);
     const payload = createNotificationContactRequestSchema.parse(req.body);
     const item = await createContact(req.tenant!.id, {
@@ -706,6 +714,7 @@ tenantedRouter.put(
   '/notification-contacts/:id',
   ...staffAuth,
   asyncHandler(async (req, res) => {
+    ensureRestrictedRolePageAccess(req.auth!.role, 'settings');
     ensureCanManageContacts(req.auth!, req.dataScope!);
     const params = contactParamsSchema.parse(req.params);
     const payload = updateNotificationContactRequestSchema.parse(req.body);
@@ -728,6 +737,7 @@ tenantedRouter.post(
   '/notification-contacts/:id/sites',
   ...staffAuth,
   asyncHandler(async (req, res) => {
+    ensureRestrictedRolePageAccess(req.auth!.role, 'settings');
     ensureCanManageContacts(req.auth!, req.dataScope!);
     const params = contactParamsSchema.parse(req.params);
     const payload = notificationContactAssignmentRequestSchema.parse(req.body);
@@ -745,6 +755,7 @@ tenantedRouter.delete(
   '/notification-contacts/:id/sites/:siteId',
   ...staffAuth,
   asyncHandler(async (req, res) => {
+    ensureRestrictedRolePageAccess(req.auth!.role, 'settings');
     ensureCanManageContacts(req.auth!, req.dataScope!);
     const params = z.object({ id: z.string().uuid(), siteId: z.string().uuid() }).parse(req.params);
     await removeContactSiteAssignment(req.tenant!.id, params.id, params.siteId);
@@ -761,6 +772,7 @@ tenantedRouter.put(
   '/tenant/settings/notifications',
   ...staffAuth,
   asyncHandler(async (req, res) => {
+    ensureRestrictedRolePageAccess(req.auth!.role, 'settings');
     const payload = updateTenantNotificationSettingsRequestSchema.parse(req.body);
     const result = await updateTenantNotificationSettings(
       req.tenant!,
@@ -777,6 +789,7 @@ tenantedRouter.get(
   '/tenant/settings/notifications/preview',
   ...staffAuth,
   asyncHandler(async (req, res) => {
+    ensureRestrictedRolePageAccess(req.auth!.role, 'settings');
     ensureCanViewNotificationConfiguration(req.auth!, req.dataScope!);
     const query = notificationPreviewQuerySchema.parse(req.query);
     const preview = await previewNotificationRecipientResolution({
