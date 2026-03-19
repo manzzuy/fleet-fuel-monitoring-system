@@ -39,18 +39,15 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [complianceTypes, setComplianceTypes] = useState<ComplianceTypeRecord[]>([]);
   const [complianceRows, setComplianceRows] = useState<ComplianceRecordItem[]>([]);
-  const [newTypeName, setNewTypeName] = useState('');
-  const [newTypeRequiresExpiry, setNewTypeRequiresExpiry] = useState(true);
-  const [selectedTypeId, setSelectedTypeId] = useState('');
+  const [complianceCategory, setComplianceCategory] = useState<'TRAINING' | 'COMPLIANCE'>('COMPLIANCE');
+  const [complianceName, setComplianceName] = useState('');
   const [referenceNumber, setReferenceNumber] = useState('');
   const [issuedAt, setIssuedAt] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
-  const [notes, setNotes] = useState('');
   const [complianceMessage, setComplianceMessage] = useState<string | null>(null);
   const [sites, setSites] = useState<Array<{ id: string; site_code: string; site_name: string }>>([]);
   const [drivers, setDrivers] = useState<Array<{ id: string; full_name: string }>>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [complianceEditingVehicleId, setComplianceEditingVehicleId] = useState<string | null>(null);
   const [vehicleForm, setVehicleForm] = useState({
     fleet_no: '',
     plate_no: '',
@@ -148,7 +145,6 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
   function startEdit(row: VehicleLookupRecord) {
     setEditingId(row.id);
     setSelectedVehicleId(row.id);
-    setComplianceEditingVehicleId(row.id);
     setVehicleForm({
       fleet_no: row.fleet_no,
       plate_no: row.plate_no ?? '',
@@ -248,33 +244,35 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
 
   const selectedVehicle = selectedVehicleId ? rows.find((row) => row.id === selectedVehicleId) ?? null : null;
 
-  async function handleCreateType() {
-    if (!host || !subdomain || !newTypeName.trim()) {
-      return;
+  function resetComplianceForm() {
+    setComplianceCategory('COMPLIANCE');
+    setComplianceName('');
+    setReferenceNumber('');
+    setIssuedAt('');
+    setExpiryDate('');
+  }
+
+  async function resolveComplianceTypeId(tenantHost: string, token: string) {
+    const normalizedName = complianceName.trim();
+    if (!normalizedName) {
+      return null;
     }
-    const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
-    if (!token) {
-      return;
+    const typeLabel = `${complianceCategory}: ${normalizedName}`;
+    const existing = complianceTypes.find((item) => item.name.toLowerCase() === typeLabel.toLowerCase());
+    if (existing) {
+      return existing.id;
     }
-    setComplianceMessage(null);
-    try {
-      const created = await createComplianceType(host, token, {
-        name: newTypeName.trim(),
-        applies_to: 'VEHICLE',
-        requires_expiry: newTypeRequiresExpiry,
-      });
-      setComplianceTypes((prev) => [...prev, created.item].sort((a, b) => a.name.localeCompare(b.name)));
-      setSelectedTypeId(created.item.id);
-      setNewTypeName('');
-      setComplianceMessage('Vehicle compliance type created.');
-    } catch (caught) {
-      const message = caught instanceof ApiClientError ? caught.message : 'Unable to create compliance type.';
-      setComplianceMessage(message);
-    }
+    const created = await createComplianceType(tenantHost, token, {
+      name: typeLabel,
+      applies_to: 'VEHICLE',
+      requires_expiry: true,
+    });
+    setComplianceTypes((prev) => [...prev, created.item].sort((a, b) => a.name.localeCompare(b.name)));
+    return created.item.id;
   }
 
   async function handleCreateRecord() {
-    if (!host || !subdomain || !selectedVehicleId || !selectedTypeId) {
+    if (!host || !subdomain || !selectedVehicleId || !complianceName.trim()) {
       return;
     }
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
@@ -283,23 +281,23 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
     }
     setComplianceMessage(null);
     try {
+      const complianceTypeId = await resolveComplianceTypeId(host, token);
+      if (!complianceTypeId) {
+        setComplianceMessage('Type name is required.');
+        return;
+      }
       await createComplianceRecord(host, token, {
         applies_to: 'VEHICLE',
         target_id: selectedVehicleId,
-        compliance_type_id: selectedTypeId,
+        compliance_type_id: complianceTypeId,
         reference_number: referenceNumber || undefined,
         issued_at: issuedAt || undefined,
         expiry_date: expiryDate || undefined,
-        notes: notes || undefined,
       });
       const records = await listComplianceRecords(host, token, { applies_to: 'VEHICLE', vehicle_id: selectedVehicleId });
       setComplianceRows(records.items);
-      setReferenceNumber('');
-      setIssuedAt('');
-      setExpiryDate('');
-      setNotes('');
+      resetComplianceForm();
       setComplianceMessage('Vehicle compliance record saved.');
-      setComplianceEditingVehicleId(null);
     } catch (caught) {
       const message = caught instanceof ApiClientError ? caught.message : 'Unable to save compliance record.';
       setComplianceMessage(message);
@@ -540,34 +538,34 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
                     </div>
                     <div className="inline-grid four master-form-grid">
                       <label className="field">
-                        <span>Inspection / compliance type</span>
-                        <select value={selectedTypeId} onChange={(event) => setSelectedTypeId(event.target.value)}>
-                          <option value="">Select type</option>
-                          {complianceTypes.map((type) => (
-                            <option key={type.id} value={type.id}>
-                              {type.name}
-                            </option>
-                          ))}
+                        <span>Type</span>
+                        <select value={complianceCategory} onChange={(event) => setComplianceCategory(event.target.value as 'TRAINING' | 'COMPLIANCE')}>
+                          <option value="TRAINING">Training</option>
+                          <option value="COMPLIANCE">Compliance</option>
                         </select>
                       </label>
                       <label className="field">
-                        <span>Reference no</span>
-                        <input value={referenceNumber} onChange={(event) => setReferenceNumber(event.target.value)} />
+                        <span>Name</span>
+                        <input
+                          value={complianceName}
+                          onChange={(event) => setComplianceName(event.target.value)}
+                          placeholder="e.g. Registration, Inspection"
+                        />
                       </label>
                       <label className="field">
-                        <span>Issued at</span>
+                        <span>Issue Date</span>
                         <input type="date" value={issuedAt} onChange={(event) => setIssuedAt(event.target.value)} />
                       </label>
                       <label className="field">
-                        <span>Expiry date</span>
+                        <span>Expiry Date</span>
                         <input type="date" value={expiryDate} onChange={(event) => setExpiryDate(event.target.value)} />
                       </label>
                       <label className="field">
-                        <span>Notes</span>
-                        <input value={notes} onChange={(event) => setNotes(event.target.value)} />
+                        <span>Reference No. (optional)</span>
+                        <input value={referenceNumber} onChange={(event) => setReferenceNumber(event.target.value)} />
                       </label>
                       <div className="edit-actions">
-                        <button className="button button-secondary" type="button" onClick={() => void handleCreateRecord()} disabled={!selectedTypeId}>
+                        <button className="button button-secondary" type="button" onClick={() => void handleCreateRecord()} disabled={!complianceName.trim()}>
                           Add inspection/compliance
                         </button>
                       </div>
