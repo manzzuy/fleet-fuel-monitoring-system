@@ -29,6 +29,17 @@ interface TenantDriversPageProps {
   subdomain: string | null;
 }
 
+function optionalSites(
+  promise: Promise<{ items: Array<{ id: string; site_code: string; site_name: string }> }>,
+) {
+  return promise.catch((error) => {
+    if (error instanceof ApiClientError && error.code === 'forbidden') {
+      return { items: [] };
+    }
+    throw error;
+  });
+}
+
 export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
   const router = useRouter();
   const [rows, setRows] = useState<DriverLookupRecord[]>([]);
@@ -81,7 +92,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     const [driversResult, typesResult, sitesResult, vehiclesResult] = await Promise.all([
       listMasterDrivers(host, token, { limit: '100', search: currentSearch || undefined }),
       listComplianceTypes(host, token, { applies_to: 'DRIVER' }),
-      listTenantSites(host, token, { limit: '100' }),
+      optionalSites(listTenantSites(host, token, { limit: '100' })),
       listTenantVehicles(host, token, { limit: '100' }),
     ]);
     setRows(driversResult.items);
@@ -109,7 +120,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     void Promise.all([
       listMasterDrivers(host, token, { limit: '100', search: search || undefined }),
       listComplianceTypes(host, token, { applies_to: 'DRIVER' }),
-      listTenantSites(host, token, { limit: '100' }),
+      optionalSites(listTenantSites(host, token, { limit: '100' })),
       listTenantVehicles(host, token, { limit: '100' }),
     ])
       .then(([driversResult, typesResult, sitesResult, vehiclesResult]) => {
