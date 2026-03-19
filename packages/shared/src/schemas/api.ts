@@ -213,7 +213,7 @@ export const tenantDashboardSummaryResponseSchema = z.object({
         employee_no: z.string().nullable(),
         username: z.string().nullable(),
         full_name: z.string(),
-        role: z.enum(['DRIVER', 'SITE_SUPERVISOR']),
+        role: z.enum(['DRIVER', 'SITE_SUPERVISOR', 'SAFETY_OFFICER', 'TENANT_ADMIN', 'TRANSPORT_MANAGER']),
         created_at: isoDateTimeSchema,
       }),
     ),
@@ -735,7 +735,9 @@ const notificationRecipientSchema = z.object({
 });
 
 export const notificationContactRoleSchema = z.enum([
+  'TENANT_ADMIN',
   'SITE_SUPERVISOR',
+  'SAFETY_OFFICER',
   'TRANSPORT_MANAGER',
   'HEAD_OFFICE_ADMIN',
   'CUSTOM',

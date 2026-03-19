@@ -60,10 +60,12 @@ export class ApiClientError extends Error {
 }
 
 export interface MasterDriverWritePayload {
+  role?: 'DRIVER' | 'SITE_SUPERVISOR' | 'SAFETY_OFFICER' | 'TENANT_ADMIN';
   full_name?: string;
   employee_no?: string | null;
   username?: string;
   site_id?: string | null;
+  site_ids?: string[];
   assigned_vehicle_id?: string | null;
   is_active?: boolean;
 }
@@ -71,6 +73,10 @@ export interface MasterDriverWritePayload {
 export interface MasterVehicleWritePayload {
   fleet_no?: string;
   plate_no?: string | null;
+  last_service_date?: string | null;
+  last_service_odometer_km?: number | null;
+  next_service_odometer_km?: number | null;
+  service_interval_km?: number | null;
   site_id?: string | null;
   assigned_driver_user_id?: string | null;
   is_active?: boolean;

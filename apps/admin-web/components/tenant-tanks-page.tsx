@@ -8,7 +8,8 @@ import type { ScopeStatus } from '@fleet-fuel/shared';
 
 import { ApiClientError, createMasterTank, listTenantSites, listTenantTanks, updateMasterTank } from '../lib/api';
 import { formatSiteDisplayName } from '../lib/display-format';
-import { getTenantTokenKey } from '../lib/tenant-session';
+import { isSafetyOfficerRole, isSiteSupervisorRole } from '../lib/roles';
+import { getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
@@ -34,6 +35,7 @@ export function TenantTanksPage({ host, subdomain }: TenantTanksPageProps) {
   });
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [role, setRole] = useState<TenantStaffRole | null>(null);
 
   async function refreshData(currentSearch: string) {
     if (!host || !subdomain) {
@@ -42,6 +44,12 @@ export function TenantTanksPage({ host, subdomain }: TenantTanksPageProps) {
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!token) {
       router.replace('/');
+      return;
+    }
+    const currentRole = getTenantRoleFromToken(token);
+    setRole(currentRole);
+    if (isSiteSupervisorRole(currentRole) || isSafetyOfficerRole(currentRole)) {
+      router.replace('/dashboard');
       return;
     }
     const [tanksResult, sitesResult] = await Promise.all([
@@ -62,6 +70,12 @@ export function TenantTanksPage({ host, subdomain }: TenantTanksPageProps) {
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!token) {
       router.replace('/');
+      return;
+    }
+    const currentRole = getTenantRoleFromToken(token);
+    setRole(currentRole);
+    if (isSiteSupervisorRole(currentRole) || isSafetyOfficerRole(currentRole)) {
+      router.replace('/dashboard');
       return;
     }
 
@@ -155,12 +169,14 @@ export function TenantTanksPage({ host, subdomain }: TenantTanksPageProps) {
     if (subdomain) {
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
+    setRole(null);
     router.replace('/');
   }
 
   return (
     <TenantSidebarLayout
       subdomain={subdomain ?? 'tenant'}
+      role={role}
       title="Tanks monitoring"
       description="Tank inventory, reorder levels, and site association."
       onSignOut={handleLogout}

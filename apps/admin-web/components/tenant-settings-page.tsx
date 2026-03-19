@@ -24,7 +24,8 @@ import {
   updateTenantNotificationSettings,
 } from '../lib/api';
 import { formatSiteDisplayName } from '../lib/display-format';
-import { getTenantTokenKey } from '../lib/tenant-session';
+import { isSafetyOfficerRole, isSiteSupervisorRole } from '../lib/roles';
+import { getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
@@ -96,6 +97,7 @@ export function TenantSettingsPage({ host, subdomain }: TenantSettingsPageProps)
   const [previewResult, setPreviewResult] = useState<NotificationRecipientsPreviewResponse | null>(null);
   const [systemStatus, setSystemStatus] = useState<TenantedSystemStatusResponse | null>(null);
   const [systemStatusError, setSystemStatusError] = useState<string | null>(null);
+  const [role, setRole] = useState<TenantStaffRole | null>(null);
 
   async function refreshNotificationPreview(
     hostname: string,
@@ -136,6 +138,12 @@ export function TenantSettingsPage({ host, subdomain }: TenantSettingsPageProps)
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!token) {
       router.replace('/');
+      return;
+    }
+    const currentRole = getTenantRoleFromToken(token);
+    setRole(currentRole);
+    if (isSiteSupervisorRole(currentRole) || isSafetyOfficerRole(currentRole)) {
+      router.replace('/dashboard');
       return;
     }
 
@@ -251,6 +259,7 @@ export function TenantSettingsPage({ host, subdomain }: TenantSettingsPageProps)
     if (subdomain) {
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
+    setRole(null);
     router.replace('/');
   }
 
@@ -426,6 +435,7 @@ export function TenantSettingsPage({ host, subdomain }: TenantSettingsPageProps)
   return (
     <TenantSidebarLayout
       subdomain={subdomain ?? 'tenant'}
+      role={role}
       title="Settings"
       description="Operational configuration and feature policy visibility."
       onSignOut={handleLogout}

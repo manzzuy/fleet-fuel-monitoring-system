@@ -1,8 +1,10 @@
 export const platformRoles = ['PLATFORM_OWNER'] as const;
 export const userRoles = [
+  'TENANT_ADMIN',
   'COMPANY_ADMIN',
   'SUPERVISOR',
   'SITE_SUPERVISOR',
+  'SAFETY_OFFICER',
   'TRANSPORT_MANAGER',
   'HEAD_OFFICE_ADMIN',
   'DRIVER',

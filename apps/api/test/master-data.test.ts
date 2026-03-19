@@ -75,6 +75,10 @@ describe('Master data add/edit APIs', () => {
       .send({
         fleet_no: 'MST-VEH-01',
         plate_no: 'M-123',
+        last_service_date: '2026-03-01',
+        last_service_odometer_km: 125000,
+        next_service_odometer_km: 130000,
+        service_interval_km: 5000,
         site_id: siteId,
         is_active: true,
       });
@@ -150,6 +154,7 @@ describe('Master data add/edit APIs', () => {
       .set('authorization', `Bearer ${token}`)
       .send({
         plate_no: 'M-321',
+        next_service_odometer_km: 131500,
         is_active: false,
       });
     expect(updateVehicle.status).toBe(200);
@@ -178,7 +183,17 @@ describe('Master data add/edit APIs', () => {
 
     const [driver, vehicle, site, tank, auditCount, fuelStillThere, checkStillThere] = await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: driverUserId }, select: { fullName: true, isActive: true } }),
-      prisma.vehicle.findUniqueOrThrow({ where: { id: vehicleId }, select: { plateNumber: true, isActive: true } }),
+      prisma.vehicle.findUniqueOrThrow({
+        where: { id: vehicleId },
+        select: {
+          plateNumber: true,
+          isActive: true,
+          lastServiceDate: true,
+          lastServiceOdometerKm: true,
+          nextServiceOdometerKm: true,
+          serviceIntervalKm: true,
+        },
+      }),
       prisma.site.findUniqueOrThrow({ where: { id: siteId }, select: { siteName: true, isActive: true } }),
       prisma.tank.findUniqueOrThrow({ where: { id: tankId }, select: { tankName: true } }),
       prisma.auditLog.count({
@@ -187,7 +202,10 @@ describe('Master data add/edit APIs', () => {
           eventType: {
             in: [
               'MASTER_DRIVER_CREATED',
+              'MASTER_USER_CREATED',
               'MASTER_DRIVER_STATUS_CHANGED',
+              'MASTER_USER_STATUS_CHANGED',
+              'MASTER_USER_UPDATED',
               'MASTER_VEHICLE_CREATED',
               'MASTER_VEHICLE_STATUS_CHANGED',
               'MASTER_SITE_CREATED',
@@ -206,6 +224,10 @@ describe('Master data add/edit APIs', () => {
     expect(driver.isActive).toBe(false);
     expect(vehicle.plateNumber).toBe('M-321');
     expect(vehicle.isActive).toBe(false);
+    expect(vehicle.lastServiceDate?.toISOString().slice(0, 10)).toBe('2026-03-01');
+    expect(vehicle.lastServiceOdometerKm).toBe(125000);
+    expect(vehicle.nextServiceOdometerKm).toBe(131500);
+    expect(vehicle.serviceIntervalKm).toBe(5000);
     expect(site.siteName).toBe('Master Site Updated');
     expect(site.isActive).toBe(false);
     expect(tank.tankName).toBe('Tank A Updated');
@@ -239,6 +261,16 @@ describe('Master data add/edit APIs', () => {
     expect(crossTenant.status).toBe(403);
     expect(crossTenant.body.error.code).toBe('tenant_mismatch');
 
+    const siteB = await request(app)
+      .post('/tenanted/master-data/sites')
+      .set('host', 'masterscopeb.platform.test')
+      .set('authorization', `Bearer ${tenantB.token}`)
+      .send({
+        site_code: 'B-1',
+        site_name: 'Site B',
+      });
+    expect(siteB.status).toBe(201);
+
     const sup = await prisma.user.create({
       data: {
         tenantId: tenantB.tenantId,
@@ -248,6 +280,13 @@ describe('Master data add/edit APIs', () => {
         passwordHash: await hashPassword('StrongPass123'),
       },
       select: { id: true },
+    });
+    await prisma.userSiteAssignment.create({
+      data: {
+        tenantId: tenantB.tenantId,
+        userId: sup.id,
+        siteId: siteB.body.id as string,
+      },
     });
     const supLogin = await request(app)
       .post('/auth/login')
@@ -268,5 +307,60 @@ describe('Master data add/edit APIs', () => {
       });
     expect(supDenied.status).toBe(403);
     expect(supDenied.body.error.code).toBe('forbidden_master_data_write');
+  });
+
+  it('enforces tenant governance role assignment rules', async () => {
+    const platform = await platformToken();
+    const tenant = await createTenantAdmin(platform, 'mastergov');
+
+    const createTenantAdminByTransportManager = await request(app)
+      .post('/tenanted/master-data/drivers')
+      .set('host', 'mastergov.platform.test')
+      .set('authorization', `Bearer ${tenant.token}`)
+      .send({
+        role: 'TENANT_ADMIN',
+        full_name: 'Ops Admin',
+        username: 'opsadmin',
+        employee_no: 'ADM-001',
+        is_active: true,
+      });
+    expect(createTenantAdminByTransportManager.status).toBe(201);
+
+    const createdTenantAdminLogin = await request(app)
+      .post('/auth/login')
+      .set('host', 'mastergov.platform.test')
+      .send({
+        identifier: 'opsadmin',
+        password: 'StrongPass123',
+      });
+    // Randomized passwords are generated for created users.
+    expect(createdTenantAdminLogin.status).toBe(401);
+
+    await prisma.user.update({
+      where: { id: createTenantAdminByTransportManager.body.id as string },
+      data: { passwordHash: await hashPassword('StrongPass123') },
+    });
+
+    const tenantAdminLogin = await request(app)
+      .post('/auth/login')
+      .set('host', 'mastergov.platform.test')
+      .send({
+        identifier: 'opsadmin',
+        password: 'StrongPass123',
+      });
+    expect(tenantAdminLogin.status).toBe(200);
+
+    const createGovernanceByTenantAdmin = await request(app)
+      .post('/tenanted/master-data/drivers')
+      .set('host', 'mastergov.platform.test')
+      .set('authorization', `Bearer ${tenantAdminLogin.body.access_token as string}`)
+      .send({
+        role: 'TENANT_ADMIN',
+        full_name: 'Should Fail',
+        username: 'shouldfail',
+        employee_no: 'ADM-002',
+      });
+    expect(createGovernanceByTenantAdmin.status).toBe(403);
+    expect(createGovernanceByTenantAdmin.body.error.code).toBe('forbidden_role_assignment');
   });
 });

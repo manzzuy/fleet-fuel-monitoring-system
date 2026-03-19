@@ -105,7 +105,7 @@ function mapNotificationSettings(row: {
 }
 
 function canManageNotifications(role: AuthContext['role']) {
-  return ['COMPANY_ADMIN', 'SUPERVISOR', 'TRANSPORT_MANAGER', 'HEAD_OFFICE_ADMIN'].includes(role);
+  return ['TENANT_ADMIN', 'COMPANY_ADMIN', 'SUPERVISOR', 'TRANSPORT_MANAGER', 'HEAD_OFFICE_ADMIN'].includes(role);
 }
 
 export function ensureCanViewNotificationConfiguration(auth: AuthContext, scope: DataScopeContext) {

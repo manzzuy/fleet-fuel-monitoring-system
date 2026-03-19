@@ -77,6 +77,7 @@ import {
   updateComplianceType,
 } from '../services/compliance.service';
 import { asyncHandler } from '../utils/http';
+import { AppError } from '../utils/errors';
 
 export const tenantedRouter = Router();
 const staffAuth = [authMiddleware, staffSurfaceAuthMiddleware, staffScopeMiddleware] as const;
@@ -97,10 +98,12 @@ const masterIdParamsSchema = z.object({
   id: z.string().uuid(),
 });
 const createMasterDriverSchema = z.object({
+  role: z.enum(['DRIVER', 'SITE_SUPERVISOR', 'SAFETY_OFFICER', 'TENANT_ADMIN']).optional(),
   full_name: z.string().trim().min(1),
   employee_no: z.string().trim().min(1).optional().nullable(),
   username: z.string().trim().min(1),
   site_id: z.string().uuid().optional().nullable(),
+  site_ids: z.array(z.string().uuid()).optional(),
   assigned_vehicle_id: z.string().uuid().optional().nullable(),
   is_active: z.boolean().optional(),
 });
@@ -108,6 +111,10 @@ const updateMasterDriverSchema = createMasterDriverSchema.partial();
 const createMasterVehicleSchema = z.object({
   fleet_no: z.string().trim().min(1),
   plate_no: z.string().trim().min(1).optional().nullable(),
+  last_service_date: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'last_service_date must be in YYYY-MM-DD format.').optional().nullable(),
+  last_service_odometer_km: z.number().int().nonnegative().optional().nullable(),
+  next_service_odometer_km: z.number().int().nonnegative().optional().nullable(),
+  service_interval_km: z.number().int().nonnegative().optional().nullable(),
   site_id: z.string().uuid().optional().nullable(),
   assigned_driver_user_id: z.string().uuid().optional().nullable(),
   is_active: z.boolean().optional(),
@@ -131,6 +138,18 @@ const notificationPreviewQuerySchema = z.object({
   event_type: z.enum(['COMPLIANCE_EXPIRED', 'COMPLIANCE_EXPIRING_SOON']).default('COMPLIANCE_EXPIRING_SOON'),
   site_id: z.string().uuid().optional(),
 });
+
+function ensureRestrictedReadOnlyRole(role: string) {
+  if (role === 'SITE_SUPERVISOR' || role === 'SAFETY_OFFICER') {
+    throw new AppError(403, 'forbidden_read_only_role_write', 'This role has read-only access.');
+  }
+}
+
+function ensureSiteSupervisorPageAccess(role: string, area: 'tanks') {
+  if (role === 'SITE_SUPERVISOR') {
+    throw new AppError(403, `forbidden_${area}_access`, `Site supervisors cannot access ${area}.`);
+  }
+}
 
 tenantedRouter.use(tenantMiddleware);
 
@@ -210,6 +229,7 @@ tenantedRouter.post(
   '/compliance/records',
   ...staffAuth,
   asyncHandler(async (req, res) => {
+    ensureRestrictedReadOnlyRole(req.auth!.role);
     const payload = createComplianceRecordRequestSchema.parse(req.body);
     const created = await createComplianceRecord({
       tenantId: req.tenant!.id,
@@ -294,6 +314,7 @@ tenantedRouter.post(
     const id = await createMasterDriver({
       tenantId: req.tenant!.id,
       actorId: req.auth!.sub,
+      actorRole: req.auth!.role,
       payload,
     });
     res.status(201).json({
@@ -313,6 +334,7 @@ tenantedRouter.put(
     await updateMasterDriver({
       tenantId: req.tenant!.id,
       actorId: req.auth!.sub,
+      actorRole: req.auth!.role,
       scope: req.dataScope!,
       id: params.id,
       route: '/tenanted/master-data/drivers/:id',
@@ -348,6 +370,7 @@ tenantedRouter.post(
   '/fuel-entries',
   ...staffAuth,
   asyncHandler(async (req, res) => {
+    ensureRestrictedReadOnlyRole(req.auth!.role);
     const payload = createFuelEntryRequestSchema.parse(req.body);
     const created = await createFuelEntry(req.tenant!.id, req.auth!.sub, payload);
     res.status(201).json({
@@ -402,6 +425,7 @@ tenantedRouter.post(
   '/daily-checks',
   ...staffAuth,
   asyncHandler(async (req, res) => {
+    ensureRestrictedReadOnlyRole(req.auth!.role);
     const payload = createDailyCheckRequestSchema.parse(req.body);
     const created = await createDailyCheck(req.tenant!.id, req.auth!.sub, payload);
     res.status(201).json({
@@ -442,6 +466,7 @@ tenantedRouter.put(
   '/daily-checks/:id/submit',
   ...staffAuth,
   asyncHandler(async (req, res) => {
+    ensureRestrictedReadOnlyRole(req.auth!.role);
     const params = dailyCheckParamsSchema.parse(req.params);
     const payload = submitDailyCheckRequestSchema.parse(req.body);
     const updated = await submitDailyCheck(req.tenant!.id, params.id, payload);
@@ -518,6 +543,7 @@ tenantedRouter.get(
   '/tanks',
   ...staffAuth,
   asyncHandler(async (req, res) => {
+    ensureSiteSupervisorPageAccess(req.auth!.role, 'tanks');
     const query = lookupQuerySchema.parse(req.query);
     const tanks = await listTenantTanks(req.tenant!.id, req.dataScope!, query.search, query.limit);
 

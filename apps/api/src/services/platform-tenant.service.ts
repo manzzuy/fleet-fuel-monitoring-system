@@ -59,7 +59,7 @@ export async function createTenant(payload: CreateTenantRequest): Promise<Platfo
             email: string | null;
             username: string;
             fullName: string;
-            role: 'COMPANY_ADMIN';
+            role: 'TRANSPORT_MANAGER';
           }
         | undefined;
 
@@ -67,7 +67,7 @@ export async function createTenant(payload: CreateTenantRequest): Promise<Platfo
         const createdUser = await tx.user.create({
           data: {
             tenantId: createdTenant.id,
-            role: UserRole.COMPANY_ADMIN,
+            role: UserRole.TRANSPORT_MANAGER,
             email: payload.initialAdmin.email ?? null,
             username: payload.initialAdmin.username,
             fullName: payload.initialAdmin.fullName.trim(),
@@ -80,7 +80,7 @@ export async function createTenant(payload: CreateTenantRequest): Promise<Platfo
           email: createdUser.email,
           username: createdUser.username!,
           fullName: createdUser.fullName,
-          role: 'COMPANY_ADMIN',
+          role: 'TRANSPORT_MANAGER',
         };
       }
 

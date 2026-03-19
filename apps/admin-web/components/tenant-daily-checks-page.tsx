@@ -10,7 +10,7 @@ import type { ScopeStatus } from '@fleet-fuel/shared';
 
 import { ApiClientError, listDailyChecks, listTenantDrivers, listTenantSites, listTenantVehicles } from '../lib/api';
 import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
-import { getTenantTokenKey } from '../lib/tenant-session';
+import { getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
@@ -55,6 +55,7 @@ export function TenantDailyChecksPage({ host, subdomain }: TenantDailyChecksPage
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scopeStatus, setScopeStatus] = useState<ScopeStatus>('full_tenant_scope');
+  const [role, setRole] = useState<TenantStaffRole | null>(null);
 
   useEffect(() => {
     const dateParam = searchParams.get('date') ?? '';
@@ -126,6 +127,7 @@ export function TenantDailyChecksPage({ host, subdomain }: TenantDailyChecksPage
       return;
     }
 
+    setRole(getTenantRoleFromToken(token));
     setLoading(true);
     setError(null);
     void refresh(host, token)
@@ -168,12 +170,14 @@ export function TenantDailyChecksPage({ host, subdomain }: TenantDailyChecksPage
     if (subdomain) {
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
+    setRole(null);
     router.replace('/');
   }
 
   return (
     <TenantSidebarLayout
       subdomain={subdomain ?? 'tenant'}
+      role={role}
       title="Daily checks monitoring"
       description="Monitor checklist completion, missing checks, and issue flags."
       onSignOut={handleLogout}

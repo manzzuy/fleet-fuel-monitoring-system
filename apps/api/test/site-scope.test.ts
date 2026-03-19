@@ -62,13 +62,22 @@ async function seedScopedFixture() {
     }),
   ]);
 
-  const [supervisor, transportManager, headOffice] = await Promise.all([
+  const [supervisor, safetyOfficer, transportManager, headOffice] = await Promise.all([
     prisma.user.create({
       data: {
         tenantId: tenant.id,
         role: UserRole.SITE_SUPERVISOR,
         username: 'site-supervisor',
         fullName: 'Site Supervisor',
+        passwordHash: 'hashed',
+      },
+    }),
+    prisma.user.create({
+      data: {
+        tenantId: tenant.id,
+        role: UserRole.SAFETY_OFFICER,
+        username: 'safety-officer',
+        fullName: 'Safety Officer',
         passwordHash: 'hashed',
       },
     }),
@@ -98,6 +107,20 @@ async function seedScopedFixture() {
       userId: supervisor.id,
       siteId: siteA.id,
     },
+  });
+  await prisma.userSiteAccess.createMany({
+    data: [
+      {
+        tenantId: tenant.id,
+        userId: safetyOfficer.id,
+        siteId: siteA.id,
+      },
+      {
+        tenantId: tenant.id,
+        userId: safetyOfficer.id,
+        siteId: siteB.id,
+      },
+    ],
   });
 
   const [checkA, checkB] = await Promise.all([
@@ -144,7 +167,7 @@ async function seedScopedFixture() {
     }),
   ]);
 
-  return { tenant, siteA, siteB, vehicleA, vehicleB, supervisor, transportManager, headOffice, checkA, checkB };
+  return { tenant, siteA, siteB, vehicleA, vehicleB, supervisor, safetyOfficer, transportManager, headOffice, checkA, checkB };
 }
 
 describe('Tenant internal site scoping', () => {
@@ -217,6 +240,52 @@ describe('Tenant internal site scoping', () => {
       resource_type: 'daily_check',
       resource_id: fixture.checkB.id,
     });
+  });
+
+  it('SITE_SUPERVISOR is read-only and cannot access tanks module', async () => {
+    const fixture = await seedScopedFixture();
+    const token = makeToken(fixture.supervisor.id, fixture.tenant.id, UserRole.SITE_SUPERVISOR);
+
+    const [fuelWriteAttempt, tanksAccess] = await Promise.all([
+      request(app)
+        .post('/tenanted/fuel-entries')
+        .send({})
+        .set('host', 'scoped.platform.test')
+        .set('authorization', `Bearer ${token}`),
+      request(app)
+        .get('/tenanted/tanks')
+        .set('host', 'scoped.platform.test')
+        .set('authorization', `Bearer ${token}`),
+    ]);
+
+    expect(fuelWriteAttempt.status).toBe(403);
+    expect(fuelWriteAttempt.body.error.code).toBe('forbidden_read_only_role_write');
+
+    expect(tanksAccess.status).toBe(403);
+    expect(tanksAccess.body.error.code).toBe('forbidden_tanks_access');
+  });
+
+  it('SAFETY_OFFICER can view assigned sites and remains read-only', async () => {
+    const fixture = await seedScopedFixture();
+    const token = makeToken(fixture.safetyOfficer.id, fixture.tenant.id, UserRole.SAFETY_OFFICER);
+
+    const [vehiclesResponse, writeAttempt] = await Promise.all([
+      request(app)
+        .get('/tenanted/vehicles')
+        .set('host', 'scoped.platform.test')
+        .set('authorization', `Bearer ${token}`),
+      request(app)
+        .post('/tenanted/fuel-entries')
+        .send({})
+        .set('host', 'scoped.platform.test')
+        .set('authorization', `Bearer ${token}`),
+    ]);
+
+    expect(vehiclesResponse.status).toBe(200);
+    expect(vehiclesResponse.body.items).toHaveLength(2);
+
+    expect(writeAttempt.status).toBe(403);
+    expect(writeAttempt.body.error.code).toBe('forbidden_read_only_role_write');
   });
 
   it('TRANSPORT_MANAGER has full tenant visibility', async () => {

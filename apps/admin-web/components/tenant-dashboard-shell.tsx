@@ -8,7 +8,7 @@ import type { ScopeStatus, TenantDashboardSummaryResponse } from '@fleet-fuel/sh
 
 import { ApiClientError, getTenantDashboardSummary } from '../lib/api';
 import { formatFleetCode } from '../lib/display-format';
-import { getTenantTokenKey } from '../lib/tenant-session';
+import { getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
@@ -65,6 +65,7 @@ export function TenantDashboardShell({ host, subdomain }: TenantDashboardShellPr
   const [error, setError] = useState<string | null>(null);
   const [errorRequestId, setErrorRequestId] = useState<string | null>(null);
   const [scopeStatus, setScopeStatus] = useState<ScopeStatus>('full_tenant_scope');
+  const [role, setRole] = useState<TenantStaffRole | null>(null);
 
   async function loadDashboardSummary(currentHost: string, token: string) {
     setLoading(true);
@@ -99,6 +100,7 @@ export function TenantDashboardShell({ host, subdomain }: TenantDashboardShellPr
       return;
     }
 
+    setRole(getTenantRoleFromToken(token));
     setAuthorized(true);
     void loadDashboardSummary(host, token);
   }, [host, router, subdomain]);
@@ -107,6 +109,7 @@ export function TenantDashboardShell({ host, subdomain }: TenantDashboardShellPr
     if (subdomain) {
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
+    setRole(null);
     router.replace('/');
   }
 
@@ -244,6 +247,7 @@ export function TenantDashboardShell({ host, subdomain }: TenantDashboardShellPr
   return (
     <TenantSidebarLayout
       subdomain={summary.tenant.subdomain}
+      role={role}
       title={`${summary.tenant.subdomain} operations`}
       description="Operational overview for immediate supervisor actions."
       onSignOut={handleLogout}

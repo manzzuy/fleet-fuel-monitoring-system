@@ -7,7 +7,8 @@ import type { SiteLookupRecord } from '@fleet-fuel/shared';
 import type { ScopeStatus } from '@fleet-fuel/shared';
 
 import { ApiClientError, createMasterSite, listTenantSites, updateMasterSite } from '../lib/api';
-import { getTenantTokenKey } from '../lib/tenant-session';
+import { isSafetyOfficerRole, isSiteSupervisorRole } from '../lib/roles';
+import { getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
@@ -32,6 +33,7 @@ export function TenantSitesPage({ host, subdomain }: TenantSitesPageProps) {
   });
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [role, setRole] = useState<TenantStaffRole | null>(null);
 
   async function refreshSites(currentSearch: string) {
     if (!host || !subdomain) {
@@ -40,6 +42,12 @@ export function TenantSitesPage({ host, subdomain }: TenantSitesPageProps) {
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!token) {
       router.replace('/');
+      return;
+    }
+    const currentRole = getTenantRoleFromToken(token);
+    setRole(currentRole);
+    if (isSiteSupervisorRole(currentRole) || isSafetyOfficerRole(currentRole)) {
+      router.replace('/dashboard');
       return;
     }
     const result = await listTenantSites(host, token, { limit: '100', search: currentSearch || undefined });
@@ -56,6 +64,12 @@ export function TenantSitesPage({ host, subdomain }: TenantSitesPageProps) {
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!token) {
       router.replace('/');
+      return;
+    }
+    const currentRole = getTenantRoleFromToken(token);
+    setRole(currentRole);
+    if (isSiteSupervisorRole(currentRole) || isSafetyOfficerRole(currentRole)) {
+      router.replace('/dashboard');
       return;
     }
 
@@ -151,12 +165,14 @@ export function TenantSitesPage({ host, subdomain }: TenantSitesPageProps) {
     if (subdomain) {
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
+    setRole(null);
     router.replace('/');
   }
 
   return (
     <TenantSidebarLayout
       subdomain={subdomain ?? 'tenant'}
+      role={role}
       title="Sites monitoring"
       description="Site list and operational details."
       onSignOut={handleLogout}

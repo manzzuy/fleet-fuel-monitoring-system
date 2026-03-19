@@ -9,7 +9,22 @@ import { hashPassword } from '../utils/password';
 import { recordOutOfScopeAuditLog } from './scope-utils.service';
 
 function canManageMasterData(role: AuthContext['role']) {
-  return role === 'COMPANY_ADMIN' || role === 'TRANSPORT_MANAGER' || role === 'HEAD_OFFICE_ADMIN';
+  return (
+    role === 'TENANT_ADMIN' ||
+    role === 'TRANSPORT_MANAGER' ||
+    role === 'COMPANY_ADMIN' ||
+    role === 'HEAD_OFFICE_ADMIN'
+  );
+}
+
+function canAssignRole(actorRole: AuthContext['role'], targetRole: UserRole) {
+  if (actorRole === 'TRANSPORT_MANAGER') {
+    return targetRole !== UserRole.TRANSPORT_MANAGER;
+  }
+  if (actorRole === 'TENANT_ADMIN' || actorRole === 'COMPANY_ADMIN' || actorRole === 'HEAD_OFFICE_ADMIN') {
+    return targetRole === UserRole.DRIVER || targetRole === UserRole.SITE_SUPERVISOR || targetRole === UserRole.SAFETY_OFFICER;
+  }
+  return false;
 }
 
 export function ensureCanManageMasterData(auth: AuthContext, scope: DataScopeContext) {
@@ -57,6 +72,24 @@ async function ensureTenantVehicle(tenantId: string, vehicleId: string) {
   if (!vehicle) {
     throw new AppError(404, 'vehicle_not_found', 'Vehicle not found in this tenant.');
   }
+}
+
+function parseOptionalServiceDate(value: string | null | undefined, fieldName: string): Date | null {
+  if (value === undefined || value === null || value.trim() === '') {
+    return null;
+  }
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new AppError(400, 'validation_error', `${fieldName} must be a valid date in YYYY-MM-DD format.`);
+  }
+  return parsed;
+}
+
+function formatServiceDate(value: Date | null): string | null {
+  if (!value) {
+    return null;
+  }
+  return value.toISOString().slice(0, 10);
 }
 
 async function getDriverProjectionForUser(tenantId: string, user: { id: string; username: string | null; employeeNo: string | null }) {
@@ -108,7 +141,18 @@ async function ensureDriverProjection(input: {
 }
 
 async function setSingleSiteAssignment(tenantId: string, userId: string, siteId: string | null) {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { siteId },
+  });
+
   await prisma.userSiteAssignment.deleteMany({
+    where: {
+      tenantId,
+      userId,
+    },
+  });
+  await prisma.userSiteAccess.deleteMany({
     where: {
       tenantId,
       userId,
@@ -119,11 +163,69 @@ async function setSingleSiteAssignment(tenantId: string, userId: string, siteId:
     return;
   }
 
+  await Promise.all([
+    prisma.userSiteAssignment.create({
+      data: {
+        tenantId,
+        userId,
+        siteId,
+      },
+    }),
+    prisma.userSiteAccess.create({
+      data: {
+        tenantId,
+        userId,
+        siteId,
+      },
+    }),
+  ]);
+}
+
+async function setMultiSiteAccess(tenantId: string, userId: string, siteIds: string[]) {
+  const uniqueSiteIds = [...new Set(siteIds)];
+  await prisma.user.update({
+    where: { id: userId },
+    data: { siteId: uniqueSiteIds[0] ?? null },
+  });
+
+  await prisma.userSiteAccess.deleteMany({
+    where: {
+      tenantId,
+      userId,
+    },
+  });
+
+  if (uniqueSiteIds.length === 0) {
+    await prisma.userSiteAssignment.deleteMany({
+      where: {
+        tenantId,
+        userId,
+      },
+    });
+    return;
+  }
+
+  await prisma.userSiteAccess.createMany({
+    data: uniqueSiteIds.map((siteId) => ({
+      tenantId,
+      userId,
+      siteId,
+    })),
+    skipDuplicates: true,
+  });
+
+  // Keep legacy single-assignment table in sync with primary site for backward compatibility.
+  await prisma.userSiteAssignment.deleteMany({
+    where: {
+      tenantId,
+      userId,
+    },
+  });
   await prisma.userSiteAssignment.create({
     data: {
       tenantId,
       userId,
-      siteId,
+      siteId: uniqueSiteIds[0]!,
     },
   });
 }
@@ -188,14 +290,27 @@ export async function listMasterDrivers(tenantId: string, scope: DataScopeContex
   const users = await prisma.user.findMany({
     where: {
       tenantId,
-      role: UserRole.DRIVER,
+      role: {
+        in: [UserRole.DRIVER, UserRole.SITE_SUPERVISOR, UserRole.SAFETY_OFFICER, UserRole.TENANT_ADMIN, UserRole.TRANSPORT_MANAGER],
+      },
       ...(!scope.isFullTenantScope
         ? {
-            siteAssignments: {
-              some: {
-                siteId: { in: scope.allowedSiteIds },
+            OR: [
+              {
+                siteAssignments: {
+                  some: {
+                    siteId: { in: scope.allowedSiteIds },
+                  },
+                },
               },
-            },
+              {
+                siteAccesses: {
+                  some: {
+                    siteId: { in: scope.allowedSiteIds },
+                  },
+                },
+              },
+            ],
           }
         : {}),
       ...(search
@@ -216,6 +331,7 @@ export async function listMasterDrivers(tenantId: string, scope: DataScopeContex
       employeeNo: true,
       username: true,
       isActive: true,
+      role: true,
       siteAssignments: {
         orderBy: { createdAt: 'asc' },
         take: 1,
@@ -228,6 +344,10 @@ export async function listMasterDrivers(tenantId: string, scope: DataScopeContex
             },
           },
         },
+      },
+      siteAccesses: {
+        orderBy: { createdAt: 'asc' },
+        select: { siteId: true },
       },
       createdAt: true,
       passwordHash: true,
@@ -265,6 +385,7 @@ export async function listMasterDrivers(tenantId: string, scope: DataScopeContex
       full_name: user.fullName,
       employee_no: user.employeeNo,
       username: user.username,
+      role: user.role,
       is_active: user.isActive,
       site: user.siteAssignments[0]?.site
         ? {
@@ -280,6 +401,7 @@ export async function listMasterDrivers(tenantId: string, scope: DataScopeContex
             plate_no: projection.assignedVehicle.plateNumber,
           }
         : null,
+      site_ids: user.siteAccesses.map((item) => item.siteId),
       created_at: user.createdAt.toISOString(),
     };
   });
@@ -288,19 +410,24 @@ export async function listMasterDrivers(tenantId: string, scope: DataScopeContex
 export async function createMasterDriver(input: {
   tenantId: string;
   actorId: string;
+  actorRole: AuthContext['role'];
   payload: {
     full_name: string;
+    role?: UserRole | undefined;
     employee_no?: string | null | undefined;
     username: string;
     site_id?: string | null | undefined;
+    site_ids?: string[] | undefined;
     assigned_vehicle_id?: string | null | undefined;
     is_active?: boolean | undefined;
   };
 }) {
+  const role = input.payload.role ?? UserRole.DRIVER;
   const fullName = input.payload.full_name.trim();
   const username = input.payload.username.trim().toLowerCase();
   const employeeNo = input.payload.employee_no?.trim() || null;
   const siteId = input.payload.site_id ?? null;
+  const siteIds = input.payload.site_ids ?? [];
   const assignedVehicleId = input.payload.assigned_vehicle_id ?? null;
   const isActive = input.payload.is_active ?? true;
 
@@ -311,18 +438,49 @@ export async function createMasterDriver(input: {
     throw new AppError(400, 'validation_error', 'username is required.');
   }
 
+  if (!canAssignRole(input.actorRole, role)) {
+    throw new AppError(403, 'forbidden_role_assignment', 'Your role cannot create this user role.');
+  }
+
+  if (role === UserRole.TRANSPORT_MANAGER && input.actorRole !== 'TRANSPORT_MANAGER') {
+    throw new AppError(403, 'forbidden_role_assignment', 'Only Transport Manager can manage governance roles.');
+  }
+
+  if (role === UserRole.TENANT_ADMIN && input.actorRole !== 'TRANSPORT_MANAGER') {
+    throw new AppError(403, 'forbidden_role_assignment', 'Only Transport Manager can create Tenant Admin users.');
+  }
+
+  if (role === UserRole.SITE_SUPERVISOR && !siteId) {
+    throw new AppError(400, 'validation_error', 'Site Supervisor requires a single site assignment.');
+  }
+  if (role === UserRole.SAFETY_OFFICER && siteIds.length === 0) {
+    throw new AppError(400, 'validation_error', 'Safety Officer requires at least one site assignment.');
+  }
+  if (role !== UserRole.SAFETY_OFFICER && siteIds.length > 0) {
+    throw new AppError(400, 'validation_error', 'site_ids is only allowed for Safety Officer.');
+  }
+  if ((role === UserRole.DRIVER || role === UserRole.SITE_SUPERVISOR) && siteIds.length > 0) {
+    throw new AppError(400, 'validation_error', 'Use site_id for single-site roles.');
+  }
+
   if (siteId) {
     await ensureTenantSite(input.tenantId, siteId);
   }
+  for (const currentSiteId of siteIds) {
+    await ensureTenantSite(input.tenantId, currentSiteId);
+  }
   if (assignedVehicleId) {
     await ensureTenantVehicle(input.tenantId, assignedVehicleId);
+  }
+  if (role !== UserRole.DRIVER && assignedVehicleId) {
+    throw new AppError(400, 'validation_error', 'assigned_vehicle_id is only allowed for DRIVER.');
   }
 
   const passwordHash = await hashPassword(randomUUID());
   const user = await prisma.user.create({
     data: {
       tenantId: input.tenantId,
-      role: UserRole.DRIVER,
+      role,
       fullName,
       employeeNo,
       username,
@@ -339,26 +497,36 @@ export async function createMasterDriver(input: {
     },
   });
 
-  await ensureDriverProjection({
-    tenantId: input.tenantId,
-    user,
-  });
-  await setSingleSiteAssignment(input.tenantId, user.id, siteId);
-  await setDriverVehicleAssignment({
-    tenantId: input.tenantId,
-    user,
-    vehicleId: assignedVehicleId,
-  });
+  if (role === UserRole.DRIVER) {
+    await ensureDriverProjection({
+      tenantId: input.tenantId,
+      user,
+    });
+  }
+  if (role === UserRole.SAFETY_OFFICER) {
+    await setMultiSiteAccess(input.tenantId, user.id, siteIds);
+  } else {
+    await setSingleSiteAssignment(input.tenantId, user.id, siteId);
+  }
+  if (role === UserRole.DRIVER) {
+    await setDriverVehicleAssignment({
+      tenantId: input.tenantId,
+      user,
+      vehicleId: assignedVehicleId,
+    });
+  }
 
   await writeAuditLog({
     tenantId: input.tenantId,
     actorId: input.actorId,
-    eventType: 'MASTER_DRIVER_CREATED',
+    eventType: 'MASTER_USER_CREATED',
     metadata: {
-      driver_user_id: user.id,
+      user_id: user.id,
+      role,
       username,
       employee_no: employeeNo,
       site_id: siteId,
+      site_ids: siteIds,
       assigned_vehicle_id: assignedVehicleId,
       is_active: isActive,
     },
@@ -370,14 +538,17 @@ export async function createMasterDriver(input: {
 export async function updateMasterDriver(input: {
   tenantId: string;
   actorId: string;
+  actorRole: AuthContext['role'];
   scope: DataScopeContext;
   id: string;
   route: string;
   payload: {
+    role?: UserRole | undefined;
     full_name?: string | undefined;
     employee_no?: string | null | undefined;
     username?: string | undefined;
     site_id?: string | null | undefined;
+    site_ids?: string[] | undefined;
     assigned_vehicle_id?: string | null | undefined;
     is_active?: boolean | undefined;
   };
@@ -386,18 +557,20 @@ export async function updateMasterDriver(input: {
     where: {
       id: input.id,
       tenantId: input.tenantId,
-      role: UserRole.DRIVER,
+      role: {
+        in: [UserRole.DRIVER, UserRole.SITE_SUPERVISOR, UserRole.SAFETY_OFFICER, UserRole.TENANT_ADMIN],
+      },
     },
     select: {
       id: true,
       fullName: true,
       employeeNo: true,
       username: true,
+      role: true,
       isActive: true,
       passwordHash: true,
-      siteAssignments: {
-        select: { siteId: true },
-      },
+      siteAssignments: { select: { siteId: true } },
+      siteAccesses: { select: { siteId: true } },
     },
   });
   if (!existing) {
@@ -405,7 +578,9 @@ export async function updateMasterDriver(input: {
   }
 
   if (!input.scope.isFullTenantScope) {
-    const inScope = existing.siteAssignments.some((assignment) => input.scope.allowedSiteIds.includes(assignment.siteId));
+    const inScope =
+      existing.siteAssignments.some((assignment) => input.scope.allowedSiteIds.includes(assignment.siteId)) ||
+      existing.siteAccesses.some((assignment) => input.scope.allowedSiteIds.includes(assignment.siteId));
     if (!inScope) {
       await recordOutOfScopeAuditLog({
         tenantId: input.tenantId,
@@ -421,8 +596,10 @@ export async function updateMasterDriver(input: {
   const nextFullName = input.payload.full_name === undefined ? existing.fullName : input.payload.full_name.trim();
   const nextEmployeeNo = input.payload.employee_no === undefined ? existing.employeeNo : input.payload.employee_no?.trim() || null;
   const nextUsername = input.payload.username === undefined ? existing.username : input.payload.username.trim().toLowerCase();
+  const nextRole = input.payload.role ?? existing.role;
   const nextIsActive = input.payload.is_active === undefined ? existing.isActive : input.payload.is_active;
   const nextSiteId = input.payload.site_id;
+  const nextSiteIds = input.payload.site_ids;
   const nextVehicleId = input.payload.assigned_vehicle_id;
 
   if (!nextFullName) {
@@ -432,11 +609,35 @@ export async function updateMasterDriver(input: {
     throw new AppError(400, 'validation_error', 'username cannot be empty.');
   }
 
+  if (!canAssignRole(input.actorRole, nextRole)) {
+    throw new AppError(403, 'forbidden_role_assignment', 'Your role cannot assign this user role.');
+  }
+  if (nextRole === UserRole.TENANT_ADMIN && input.actorRole !== 'TRANSPORT_MANAGER') {
+    throw new AppError(403, 'forbidden_role_assignment', 'Only Transport Manager can assign Tenant Admin.');
+  }
+  if (nextRole === UserRole.TRANSPORT_MANAGER) {
+    throw new AppError(400, 'validation_error', 'Transport Manager role cannot be assigned via this endpoint.');
+  }
+
   if (nextSiteId) {
     await ensureTenantSite(input.tenantId, nextSiteId);
   }
+  if (nextSiteIds) {
+    for (const currentSiteId of nextSiteIds) {
+      await ensureTenantSite(input.tenantId, currentSiteId);
+    }
+  }
   if (nextVehicleId) {
     await ensureTenantVehicle(input.tenantId, nextVehicleId);
+  }
+  if (nextRole !== UserRole.DRIVER && nextVehicleId !== undefined && nextVehicleId !== null) {
+    throw new AppError(400, 'validation_error', 'assigned_vehicle_id is only allowed for DRIVER.');
+  }
+  if (nextRole === UserRole.SITE_SUPERVISOR && nextSiteId === undefined && existing.siteAssignments.length === 0 && existing.siteAccesses.length === 0) {
+    throw new AppError(400, 'validation_error', 'Site Supervisor requires a site assignment.');
+  }
+  if (nextRole === UserRole.SAFETY_OFFICER && nextSiteIds !== undefined && nextSiteIds.length === 0) {
+    throw new AppError(400, 'validation_error', 'Safety Officer requires at least one assigned site.');
   }
 
   const updated = await prisma.user.update({
@@ -447,6 +648,7 @@ export async function updateMasterDriver(input: {
       fullName: nextFullName,
       employeeNo: nextEmployeeNo,
       username: nextUsername,
+      role: nextRole,
       isActive: nextIsActive,
     },
     select: {
@@ -459,12 +661,15 @@ export async function updateMasterDriver(input: {
     },
   });
 
-  const projection = await ensureDriverProjection({
-    tenantId: input.tenantId,
-    user: updated,
-  });
+  const projection =
+    nextRole === UserRole.DRIVER
+      ? await ensureDriverProjection({
+          tenantId: input.tenantId,
+          user: updated,
+        })
+      : null;
 
-  if (projection) {
+  if (projection && nextRole === UserRole.DRIVER) {
     await prisma.driver.update({
       where: { id: projection.id },
       data: {
@@ -480,7 +685,10 @@ export async function updateMasterDriver(input: {
   if (nextSiteId !== undefined) {
     await setSingleSiteAssignment(input.tenantId, updated.id, nextSiteId);
   }
-  if (nextVehicleId !== undefined) {
+  if (nextSiteIds !== undefined) {
+    await setMultiSiteAccess(input.tenantId, updated.id, nextSiteIds);
+  }
+  if (nextVehicleId !== undefined && nextRole === UserRole.DRIVER) {
     await setDriverVehicleAssignment({
       tenantId: input.tenantId,
       user: updated,
@@ -491,12 +699,14 @@ export async function updateMasterDriver(input: {
   await writeAuditLog({
     tenantId: input.tenantId,
     actorId: input.actorId,
-    eventType: existing.isActive !== nextIsActive ? 'MASTER_DRIVER_STATUS_CHANGED' : 'MASTER_DRIVER_UPDATED',
+    eventType: existing.isActive !== nextIsActive ? 'MASTER_USER_STATUS_CHANGED' : 'MASTER_USER_UPDATED',
     metadata: {
-      driver_user_id: updated.id,
+      user_id: updated.id,
+      role: nextRole,
       username: updated.username,
       employee_no: updated.employeeNo,
       site_id: nextSiteId,
+      site_ids: nextSiteIds ?? null,
       assigned_vehicle_id: nextVehicleId,
       is_active: updated.isActive,
     },
@@ -583,6 +793,10 @@ export async function listMasterVehicles(tenantId: string, scope: DataScopeConte
       id: vehicle.id,
       fleet_no: vehicle.fleetNumber,
       plate_no: vehicle.plateNumber,
+      last_service_date: formatServiceDate(vehicle.lastServiceDate),
+      last_service_odometer_km: vehicle.lastServiceOdometerKm,
+      next_service_odometer_km: vehicle.nextServiceOdometerKm,
+      service_interval_km: vehicle.serviceIntervalKm,
       is_active: vehicle.isActive,
       site: vehicle.site
         ? {
@@ -607,6 +821,10 @@ export async function createMasterVehicle(input: {
   payload: {
     fleet_no: string;
     plate_no?: string | null | undefined;
+    last_service_date?: string | null | undefined;
+    last_service_odometer_km?: number | null | undefined;
+    next_service_odometer_km?: number | null | undefined;
+    service_interval_km?: number | null | undefined;
     site_id?: string | null | undefined;
     assigned_driver_user_id?: string | null | undefined;
     is_active?: boolean | undefined;
@@ -621,12 +839,17 @@ export async function createMasterVehicle(input: {
   if (siteId) {
     await ensureTenantSite(input.tenantId, siteId);
   }
+  const lastServiceDate = parseOptionalServiceDate(input.payload.last_service_date, 'last_service_date');
 
   const vehicle = await prisma.vehicle.create({
     data: {
       tenantId: input.tenantId,
       fleetNumber: fleetNo,
       plateNumber: input.payload.plate_no?.trim() || null,
+      lastServiceDate,
+      lastServiceOdometerKm: input.payload.last_service_odometer_km ?? null,
+      nextServiceOdometerKm: input.payload.next_service_odometer_km ?? null,
+      serviceIntervalKm: input.payload.service_interval_km ?? null,
       siteId,
       isActive: input.payload.is_active ?? true,
     },
@@ -650,6 +873,10 @@ export async function createMasterVehicle(input: {
     metadata: {
       vehicle_id: vehicle.id,
       fleet_no: fleetNo,
+      last_service_date: input.payload.last_service_date ?? null,
+      last_service_odometer_km: input.payload.last_service_odometer_km ?? null,
+      next_service_odometer_km: input.payload.next_service_odometer_km ?? null,
+      service_interval_km: input.payload.service_interval_km ?? null,
       site_id: siteId,
       assigned_driver_user_id: input.payload.assigned_driver_user_id ?? null,
       is_active: input.payload.is_active ?? true,
@@ -721,6 +948,10 @@ export async function updateMasterVehicle(input: {
   payload: {
     fleet_no?: string | undefined;
     plate_no?: string | null | undefined;
+    last_service_date?: string | null | undefined;
+    last_service_odometer_km?: number | null | undefined;
+    next_service_odometer_km?: number | null | undefined;
+    service_interval_km?: number | null | undefined;
     site_id?: string | null | undefined;
     assigned_driver_user_id?: string | null | undefined;
     is_active?: boolean | undefined;
@@ -735,6 +966,10 @@ export async function updateMasterVehicle(input: {
       id: true,
       fleetNumber: true,
       plateNumber: true,
+      lastServiceDate: true,
+      lastServiceOdometerKm: true,
+      nextServiceOdometerKm: true,
+      serviceIntervalKm: true,
       siteId: true,
       isActive: true,
     },
@@ -765,6 +1000,10 @@ export async function updateMasterVehicle(input: {
   if (nextSiteId) {
     await ensureTenantSite(input.tenantId, nextSiteId);
   }
+  const nextLastServiceDate =
+    input.payload.last_service_date === undefined
+      ? existing.lastServiceDate
+      : parseOptionalServiceDate(input.payload.last_service_date, 'last_service_date');
 
   await prisma.vehicle.update({
     where: {
@@ -773,6 +1012,14 @@ export async function updateMasterVehicle(input: {
     data: {
       fleetNumber: nextFleetNo,
       ...(input.payload.plate_no !== undefined ? { plateNumber: input.payload.plate_no?.trim() || null } : {}),
+      ...(input.payload.last_service_date !== undefined ? { lastServiceDate: nextLastServiceDate } : {}),
+      ...(input.payload.last_service_odometer_km !== undefined
+        ? { lastServiceOdometerKm: input.payload.last_service_odometer_km }
+        : {}),
+      ...(input.payload.next_service_odometer_km !== undefined
+        ? { nextServiceOdometerKm: input.payload.next_service_odometer_km }
+        : {}),
+      ...(input.payload.service_interval_km !== undefined ? { serviceIntervalKm: input.payload.service_interval_km } : {}),
       ...(nextSiteId !== undefined ? { siteId: nextSiteId } : {}),
       ...(input.payload.is_active !== undefined ? { isActive: input.payload.is_active } : {}),
     },
@@ -796,6 +1043,11 @@ export async function updateMasterVehicle(input: {
     metadata: {
       vehicle_id: existing.id,
       fleet_no: nextFleetNo,
+      last_service_date:
+        input.payload.last_service_date === undefined ? formatServiceDate(existing.lastServiceDate) : input.payload.last_service_date,
+      last_service_odometer_km: input.payload.last_service_odometer_km ?? existing.lastServiceOdometerKm ?? null,
+      next_service_odometer_km: input.payload.next_service_odometer_km ?? existing.nextServiceOdometerKm ?? null,
+      service_interval_km: input.payload.service_interval_km ?? existing.serviceIntervalKm ?? null,
       site_id: nextSiteId,
       assigned_driver_user_id: input.payload.assigned_driver_user_id ?? null,
       is_active: input.payload.is_active ?? existing.isActive,

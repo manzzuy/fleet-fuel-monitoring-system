@@ -22,7 +22,7 @@ import {
   listTenantVehicles,
 } from '../lib/api';
 import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
-import { getTenantTokenKey } from '../lib/tenant-session';
+import { getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
@@ -42,6 +42,7 @@ export function TenantFuelPage({ host, subdomain }: TenantFuelPageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scopeStatus, setScopeStatus] = useState<ScopeStatus>('full_tenant_scope');
+  const [role, setRole] = useState<TenantStaffRole | null>(null);
   const [vehicleId, setVehicleId] = useState('');
   const [driverId, setDriverId] = useState('');
   const [fromDate, setFromDate] = useState('');
@@ -138,6 +139,7 @@ export function TenantFuelPage({ host, subdomain }: TenantFuelPageProps) {
       return;
     }
 
+    setRole(getTenantRoleFromToken(token));
     setLoading(true);
     setError(null);
     void refresh(host, token)
@@ -185,12 +187,14 @@ export function TenantFuelPage({ host, subdomain }: TenantFuelPageProps) {
     if (subdomain) {
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
+    setRole(null);
     router.replace('/');
   }
 
   return (
     <TenantSidebarLayout
       subdomain={subdomain ?? 'tenant'}
+      role={role}
       title="Fuel monitoring"
       description="Fuel log monitoring, filters, and anomaly indicators."
       onSignOut={handleLogout}

@@ -129,9 +129,10 @@ export async function validateWorkbookRows(
 
   const drivers = workbook.Drivers.map((row) => {
     const roleRaw = asText(row.data.Role ?? null)?.toUpperCase() ?? null;
-    const role = roleRaw === 'DRIVER' || roleRaw === 'SITE_SUPERVISOR' ? roleRaw : null;
+    const role =
+      roleRaw === 'DRIVER' || roleRaw === 'SITE_SUPERVISOR' || roleRaw === 'SAFETY_OFFICER' ? roleRaw : null;
     if (!role) {
-      addIssue(errors, 'Drivers', row.rowNumber, 'Role', 'Role must be DRIVER or SITE_SUPERVISOR.');
+      addIssue(errors, 'Drivers', row.rowNumber, 'Role', 'Role must be DRIVER, SITE_SUPERVISOR, or SAFETY_OFFICER.');
     }
 
     const licenseExpiry = parseExcelDate((row.data.Driving_License_Expiry as string | number | Date | null) ?? null);
@@ -158,7 +159,7 @@ export async function validateWorkbookRows(
       fullName: required(errors, 'Drivers', row, 'Full_Name'),
       email: asText(row.data.Email ?? null)?.toLowerCase() ?? null,
       phone: asText(row.data.Phone ?? null),
-      role: role as 'DRIVER' | 'SITE_SUPERVISOR' | null,
+      role: role as 'DRIVER' | 'SITE_SUPERVISOR' | 'SAFETY_OFFICER' | null,
       siteCode: asLower(row.data.Site_Code ?? null),
       drivingLicenseNo: asText(row.data.Driving_License_No ?? null),
       drivingLicenseExpiry: licenseExpiry,

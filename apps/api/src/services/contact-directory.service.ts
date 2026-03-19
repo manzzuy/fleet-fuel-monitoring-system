@@ -33,7 +33,7 @@ export type NotificationRecipientPreviewItem = {
 };
 
 function canManageContacts(role: AuthContext['role']) {
-  return ['COMPANY_ADMIN', 'SUPERVISOR', 'TRANSPORT_MANAGER', 'HEAD_OFFICE_ADMIN'].includes(role);
+  return ['TENANT_ADMIN', 'COMPANY_ADMIN', 'SUPERVISOR', 'TRANSPORT_MANAGER', 'HEAD_OFFICE_ADMIN'].includes(role);
 }
 
 export function ensureCanManageContacts(auth: AuthContext, scope: DataScopeContext) {
@@ -73,7 +73,9 @@ async function ensureTenantUser(tenantId: string, userId: string) {
 
 function asRole(role: string | null | undefined) {
   if (
+    role === ContactDirectoryRole.TENANT_ADMIN ||
     role === ContactDirectoryRole.SITE_SUPERVISOR ||
+    role === ContactDirectoryRole.SAFETY_OFFICER ||
     role === ContactDirectoryRole.TRANSPORT_MANAGER ||
     role === ContactDirectoryRole.HEAD_OFFICE_ADMIN ||
     role === ContactDirectoryRole.CUSTOM
@@ -296,6 +298,8 @@ function mapOutboxEventToContactRoles(eventType: NotificationEventType): Contact
   if (audience === 'SUPPORTIVE_DRIVER_ALLOWED') {
     return [
       ContactDirectoryRole.SITE_SUPERVISOR,
+      ContactDirectoryRole.SAFETY_OFFICER,
+      ContactDirectoryRole.TENANT_ADMIN,
       ContactDirectoryRole.TRANSPORT_MANAGER,
       ContactDirectoryRole.HEAD_OFFICE_ADMIN,
       ContactDirectoryRole.CUSTOM,
@@ -304,6 +308,8 @@ function mapOutboxEventToContactRoles(eventType: NotificationEventType): Contact
 
   return [
     ContactDirectoryRole.SITE_SUPERVISOR,
+    ContactDirectoryRole.SAFETY_OFFICER,
+    ContactDirectoryRole.TENANT_ADMIN,
     ContactDirectoryRole.TRANSPORT_MANAGER,
     ContactDirectoryRole.HEAD_OFFICE_ADMIN,
   ];
@@ -356,8 +362,8 @@ async function resolveLegacyRecipients(
     recipientScope === 'SITE_SUPERVISORS_ONLY'
       ? ['SITE_SUPERVISOR']
       : audience === 'SUPPORTIVE_DRIVER_ALLOWED'
-        ? ['COMPANY_ADMIN', 'SUPERVISOR', 'SITE_SUPERVISOR', 'TRANSPORT_MANAGER', 'HEAD_OFFICE_ADMIN', 'DRIVER']
-        : ['COMPANY_ADMIN', 'SUPERVISOR', 'SITE_SUPERVISOR', 'TRANSPORT_MANAGER', 'HEAD_OFFICE_ADMIN'];
+        ? ['TENANT_ADMIN', 'COMPANY_ADMIN', 'SUPERVISOR', 'SITE_SUPERVISOR', 'SAFETY_OFFICER', 'TRANSPORT_MANAGER', 'HEAD_OFFICE_ADMIN', 'DRIVER']
+        : ['TENANT_ADMIN', 'COMPANY_ADMIN', 'SUPERVISOR', 'SITE_SUPERVISOR', 'SAFETY_OFFICER', 'TRANSPORT_MANAGER', 'HEAD_OFFICE_ADMIN'];
 
   const users = await prisma.user.findMany({
     where: {

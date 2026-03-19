@@ -36,9 +36,11 @@ export function authMiddleware(req: Request, _res: Response, next: NextFunction)
 }
 
 const STAFF_SURFACE_ROLES: UserRole[] = [
+  'TENANT_ADMIN',
   'COMPANY_ADMIN',
   'SUPERVISOR',
   'SITE_SUPERVISOR',
+  'SAFETY_OFFICER',
   'TRANSPORT_MANAGER',
   'HEAD_OFFICE_ADMIN',
 ];

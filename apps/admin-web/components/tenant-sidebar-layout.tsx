@@ -1,7 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import type { TenantStaffRole } from '../lib/tenant-session';
+import { getTenantRole } from '../lib/tenant-session';
+import { formatRoleLabel, isSafetyOfficerRole, isSiteSupervisorRole } from '../lib/roles';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', testId: 'nav-dashboard' },
@@ -9,14 +13,29 @@ const navItems = [
   { href: '/fuel', label: 'Fuel', testId: 'nav-fuel' },
   { href: '/daily-checks', label: 'Daily Checks', testId: 'nav-daily-checks' },
   { href: '/vehicles', label: 'Vehicles', testId: 'nav-vehicles' },
-  { href: '/drivers', label: 'Drivers', testId: 'nav-drivers' },
+  { href: '/drivers', label: 'Users', testId: 'nav-drivers' },
   { href: '/sites', label: 'Sites', testId: 'nav-sites' },
   { href: '/tanks', label: 'Tanks', testId: 'nav-tanks' },
   { href: '/settings', label: 'Settings', testId: 'nav-settings' },
 ];
 
+function getNavItems(role: TenantStaffRole | null) {
+  if (isSiteSupervisorRole(role)) {
+    return navItems.filter((item) =>
+      ['/dashboard', '/daily-checks', '/fuel', '/drivers', '/vehicles'].includes(item.href),
+    );
+  }
+  if (isSafetyOfficerRole(role)) {
+    return navItems.filter((item) =>
+      ['/dashboard', '/daily-checks', '/fuel', '/drivers', '/vehicles', '/alerts'].includes(item.href),
+    );
+  }
+  return navItems;
+}
+
 interface TenantSidebarLayoutProps {
   subdomain: string;
+  role?: TenantStaffRole | null;
   title: string;
   description: string;
   onSignOut: () => void;
@@ -25,12 +44,22 @@ interface TenantSidebarLayoutProps {
 
 export function TenantSidebarLayout({
   subdomain,
+  role = null,
   title,
   description,
   onSignOut,
   children,
 }: TenantSidebarLayoutProps) {
   const pathname = usePathname();
+  const [tokenRole, setTokenRole] = useState<TenantStaffRole | null>(null);
+
+  useEffect(() => {
+    const storedRole = getTenantRole(subdomain);
+    setTokenRole(storedRole);
+  }, [subdomain]);
+
+  const effectiveRole = role ?? tokenRole;
+  const visibleNavItems = getNavItems(effectiveRole);
 
   return (
     <div className="tenant-layout" data-testid="tenant-layout">
@@ -40,7 +69,7 @@ export function TenantSidebarLayout({
           <h2>{subdomain}</h2>
         </div>
         <nav className="tenant-nav" data-testid="tenant-sidebar-nav">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -65,7 +94,7 @@ export function TenantSidebarLayout({
             </div>
             <div className="tenant-session-meta" data-testid="tenant-session-meta">
               <span>Tenant: {subdomain}</span>
-              <span>Signed in as: Tenant Admin</span>
+              <span>Signed in as: {formatRoleLabel(effectiveRole)}</span>
             </div>
           </div>
         </section>

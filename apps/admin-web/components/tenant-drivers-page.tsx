@@ -19,7 +19,8 @@ import {
   updateMasterDriver,
 } from '../lib/api';
 import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
-import { getTenantTokenKey } from '../lib/tenant-session';
+import { canManageMasterDataRole } from '../lib/roles';
+import { getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
@@ -48,15 +49,23 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
   const [vehicles, setVehicles] = useState<Array<{ id: string; fleet_no: string; plate_no: string | null }>>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [driverForm, setDriverForm] = useState({
+    role: 'DRIVER' as 'DRIVER' | 'SITE_SUPERVISOR' | 'SAFETY_OFFICER' | 'TENANT_ADMIN',
     full_name: '',
     employee_no: '',
     username: '',
     site_id: '',
+    site_ids: [] as string[],
     assigned_vehicle_id: '',
     is_active: true,
   });
   const [driverMessage, setDriverMessage] = useState<string | null>(null);
   const [driverSaving, setDriverSaving] = useState(false);
+  const [role, setRole] = useState<TenantStaffRole | null>(null);
+  const canManageMasterData = canManageMasterDataRole(role);
+  const assignableRoles: Array<'DRIVER' | 'SITE_SUPERVISOR' | 'SAFETY_OFFICER' | 'TENANT_ADMIN'> =
+    role === 'TRANSPORT_MANAGER'
+      ? ['DRIVER', 'SITE_SUPERVISOR', 'SAFETY_OFFICER', 'TENANT_ADMIN']
+      : ['DRIVER', 'SITE_SUPERVISOR', 'SAFETY_OFFICER'];
 
   async function refreshDriverData(currentSearch: string) {
     if (!host || !subdomain) {
@@ -67,6 +76,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
       router.replace('/');
       return;
     }
+    setRole(getTenantRoleFromToken(token));
     const [driversResult, typesResult, sitesResult, vehiclesResult] = await Promise.all([
       listMasterDrivers(host, token, { limit: '100', search: currentSearch || undefined }),
       listComplianceTypes(host, token, { applies_to: 'DRIVER' }),
@@ -91,6 +101,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
       router.replace('/');
       return;
     }
+    setRole(getTenantRoleFromToken(token));
 
     setLoading(true);
     setError(null);
@@ -122,13 +133,18 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
   }, [host, router, search, subdomain]);
 
   function startCreate() {
+    if (!canManageMasterData) {
+      return;
+    }
     setEditingId('new');
     setSelectedDriverId('');
     setDriverForm({
+      role: 'DRIVER',
       full_name: '',
       employee_no: '',
       username: '',
       site_id: '',
+      site_ids: [],
       assigned_vehicle_id: '',
       is_active: true,
     });
@@ -136,13 +152,18 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
   }
 
   function startEdit(row: DriverLookupRecord) {
+    if (!canManageMasterData) {
+      return;
+    }
     setEditingId(row.id);
     setSelectedDriverId(row.id);
     setDriverForm({
+      role: (row.role as 'DRIVER' | 'SITE_SUPERVISOR' | 'SAFETY_OFFICER' | 'TENANT_ADMIN') ?? 'DRIVER',
       full_name: row.full_name,
       employee_no: row.employee_no ?? '',
       username: row.username ?? '',
       site_id: row.site?.id ?? '',
+      site_ids: row.site_ids ?? (row.site?.id ? [row.site.id] : []),
       assigned_vehicle_id: row.assigned_vehicle?.id ?? '',
       is_active: row.is_active ?? true,
     });
@@ -150,6 +171,10 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
   }
 
   async function saveDriver() {
+    if (!canManageMasterData) {
+      setDriverMessage('Your role is read-only for driver updates.');
+      return;
+    }
     if (!host || !subdomain) {
       return;
     }
@@ -163,21 +188,25 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     try {
       if (editingId === 'new') {
         await createMasterDriver(host, token, {
+          role: driverForm.role,
           full_name: driverForm.full_name.trim(),
           employee_no: driverForm.employee_no.trim() || null,
           username: driverForm.username.trim(),
-          site_id: driverForm.site_id || null,
-          assigned_vehicle_id: driverForm.assigned_vehicle_id || null,
+          site_id: driverForm.role === 'SAFETY_OFFICER' ? null : driverForm.site_id || null,
+          site_ids: driverForm.role === 'SAFETY_OFFICER' ? driverForm.site_ids : [],
+          assigned_vehicle_id: driverForm.role === 'DRIVER' ? driverForm.assigned_vehicle_id || null : null,
           is_active: driverForm.is_active,
         });
         setDriverMessage('Driver created.');
       } else if (editingId) {
         await updateMasterDriver(host, token, editingId, {
+          role: driverForm.role,
           full_name: driverForm.full_name.trim(),
           employee_no: driverForm.employee_no.trim() || null,
           username: driverForm.username.trim(),
-          site_id: driverForm.site_id || null,
-          assigned_vehicle_id: driverForm.assigned_vehicle_id || null,
+          site_id: driverForm.role === 'SAFETY_OFFICER' ? null : driverForm.site_id || null,
+          site_ids: driverForm.role === 'SAFETY_OFFICER' ? driverForm.site_ids : [],
+          assigned_vehicle_id: driverForm.role === 'DRIVER' ? driverForm.assigned_vehicle_id || null : null,
           is_active: driverForm.is_active,
         });
         setDriverMessage('Driver updated.');
@@ -221,6 +250,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     if (subdomain) {
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
+    setRole(null);
     router.replace('/');
   }
 
@@ -252,6 +282,10 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
   }
 
   async function handleCreateRecord() {
+    if (!canManageMasterData) {
+      setComplianceMessage('Your role is read-only for compliance updates.');
+      return;
+    }
     if (!host || !subdomain || !selectedDriverId || !complianceName.trim()) {
       return;
     }
@@ -287,25 +321,55 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
   return (
     <TenantSidebarLayout
       subdomain={subdomain ?? 'tenant'}
-      title="Drivers monitoring"
-      description="Driver status, identity, and assignment visibility."
+      role={role}
+      title="Users"
+      description="Operational user management with role-based access."
       onSignOut={handleLogout}
     >
       {scopeStatus === 'no_site_scope_assigned' ? <ScopeEmptyState /> : null}
       <section className="card" data-testid="drivers-monitoring-module">
         <div className="toolbar">
-          <h2>Drivers</h2>
+          <h2>Users</h2>
           <label className="field compact">
             <span>Search</span>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, employee, username" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, role, employee, username" />
           </label>
-          <button className="button" type="button" onClick={startCreate}>
-            Add driver
-          </button>
+          {canManageMasterData ? (
+            <button className="button" type="button" onClick={startCreate}>
+              Add user
+            </button>
+          ) : null}
         </div>
-        {editingId === 'new' ? (
+        {canManageMasterData && editingId === 'new' ? (
           <div className="inline-create-panel" data-testid="drivers-edit-form">
             <div className="inline-grid four master-form-grid">
+              <label className="field">
+                <span>Role</span>
+                <select
+                  value={driverForm.role}
+                  onChange={(event) =>
+                    setDriverForm((current) => ({
+                      ...current,
+                      role: event.target.value as 'DRIVER' | 'SITE_SUPERVISOR' | 'SAFETY_OFFICER' | 'TENANT_ADMIN',
+                      site_id: event.target.value === 'TENANT_ADMIN' ? '' : current.site_id,
+                      site_ids: event.target.value === 'SAFETY_OFFICER' ? current.site_ids : [],
+                      assigned_vehicle_id: event.target.value === 'DRIVER' ? current.assigned_vehicle_id : '',
+                    }))
+                  }
+                >
+                  {assignableRoles.map((value) => (
+                    <option key={value} value={value}>
+                      {value === 'TENANT_ADMIN'
+                        ? 'Admin'
+                        : value === 'SITE_SUPERVISOR'
+                          ? 'Site Supervisor'
+                          : value === 'SAFETY_OFFICER'
+                            ? 'Safety Officer'
+                            : 'Driver'}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="field">
                 <span>Full name</span>
                 <input value={driverForm.full_name} onChange={(event) => setDriverForm((current) => ({ ...current, full_name: event.target.value }))} />
@@ -321,31 +385,60 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                 <span>Username</span>
                 <input value={driverForm.username} onChange={(event) => setDriverForm((current) => ({ ...current, username: event.target.value }))} />
               </label>
-              <label className="field">
-                <span>Assigned site</span>
-                <select value={driverForm.site_id} onChange={(event) => setDriverForm((current) => ({ ...current, site_id: event.target.value }))}>
-                  <option value="">Unassigned</option>
-                  {sites.map((site) => (
-                    <option key={site.id} value={site.id}>
-                      {formatSiteDisplayName(site)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                <span>Assigned vehicle</span>
-                <select
-                  value={driverForm.assigned_vehicle_id}
-                  onChange={(event) => setDriverForm((current) => ({ ...current, assigned_vehicle_id: event.target.value }))}
-                >
-                  <option value="">Unassigned</option>
-                  {vehicles.map((vehicle) => (
-                    <option key={vehicle.id} value={vehicle.id}>
-                      {formatFleetCode(vehicle.fleet_no)} {vehicle.plate_no ? `(${formatFleetCode(vehicle.plate_no)})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {driverForm.role === 'SAFETY_OFFICER' ? (
+                <label className="field">
+                  <span>Assigned sites</span>
+                  <select
+                    multiple
+                    value={driverForm.site_ids}
+                    onChange={(event) =>
+                      setDriverForm((current) => ({
+                        ...current,
+                        site_ids: Array.from(event.target.selectedOptions).map((option) => option.value),
+                      }))
+                    }
+                  >
+                    {sites.map((site) => (
+                      <option key={site.id} value={site.id}>
+                        {formatSiteDisplayName(site)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : driverForm.role === 'TENANT_ADMIN' ? (
+                <label className="field">
+                  <span>Scope</span>
+                  <input value="Tenant-wide" readOnly />
+                </label>
+              ) : (
+                <label className="field">
+                  <span>Assigned site</span>
+                  <select value={driverForm.site_id} onChange={(event) => setDriverForm((current) => ({ ...current, site_id: event.target.value }))}>
+                    <option value="">Unassigned</option>
+                    {sites.map((site) => (
+                      <option key={site.id} value={site.id}>
+                        {formatSiteDisplayName(site)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {driverForm.role === 'DRIVER' ? (
+                <label className="field">
+                  <span>Assigned vehicle</span>
+                  <select
+                    value={driverForm.assigned_vehicle_id}
+                    onChange={(event) => setDriverForm((current) => ({ ...current, assigned_vehicle_id: event.target.value }))}
+                  >
+                    <option value="">Unassigned</option>
+                    {vehicles.map((vehicle) => (
+                      <option key={vehicle.id} value={vehicle.id}>
+                        {formatFleetCode(vehicle.fleet_no)} {vehicle.plate_no ? `(${formatFleetCode(vehicle.plate_no)})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <label className="checkbox-field">
                 <input
                   type="checkbox"
@@ -372,39 +465,81 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
           <div className="table">
             <div className="table-row table-head drivers-master-row">
               <span>Full name</span>
+              <span>Role</span>
               <span>Employee no</span>
               <span>Username</span>
               <span>Site</span>
               <span>Status</span>
-              <span>Edit</span>
+              <span>{canManageMasterData ? 'Edit' : 'Actions'}</span>
             </div>
             {rows.map((row) => (
               <Fragment key={row.id}>
                 <div className={`table-row drivers-master-row ${editingId === row.id ? 'row-highlight' : ''}`}>
                   <span>{row.full_name}</span>
+                  <span>{row.role ? row.role.replaceAll('_', ' ') : 'DRIVER'}</span>
                   <span>{row.employee_no ?? '—'}</span>
                   <span>{row.username ?? '—'}</span>
-                  <span>{formatSiteDisplayName(row.site)}</span>
+                  <span>
+                    {row.role === 'SAFETY_OFFICER' && row.site_ids && row.site_ids.length > 1
+                      ? `${row.site_ids.length} sites`
+                      : formatSiteDisplayName(row.site)}
+                  </span>
                   <span>
                     <span className={`status-pill ${row.is_active ? 'good' : 'issue'}`}>
                       {row.is_active ? '🟢 Active' : '🔴 Inactive'}
                     </span>
                   </span>
                   <span className="edit-action-cell">
-                    <button
-                      aria-label={`Edit ${row.full_name}`}
-                      className="button button-secondary edit-icon-button"
-                      title="Edit driver"
-                      type="button"
-                      onClick={() => startEdit(row)}
-                    >
-                      ✎
-                    </button>
+                    {canManageMasterData &&
+                    row.role !== 'TRANSPORT_MANAGER' &&
+                    !(row.role === 'TENANT_ADMIN' && role !== 'TRANSPORT_MANAGER') ? (
+                      <button
+                        aria-label={`Edit ${row.full_name}`}
+                        className="button button-secondary edit-icon-button"
+                        title="Edit driver"
+                        type="button"
+                        onClick={() => startEdit(row)}
+                      >
+                        ✎
+                      </button>
+                    ) : (
+                      '—'
+                    )}
                   </span>
                 </div>
-                {editingId === row.id ? (
+                {canManageMasterData &&
+                row.role !== 'TRANSPORT_MANAGER' &&
+                !(row.role === 'TENANT_ADMIN' && role !== 'TRANSPORT_MANAGER') &&
+                editingId === row.id ? (
                   <div className="table-row master-edit-row" data-testid="drivers-edit-form">
                     <div className="inline-grid four master-form-grid">
+                      <label className="field">
+                        <span>Role</span>
+                        <select
+                          value={driverForm.role}
+                          onChange={(event) =>
+                            setDriverForm((current) => ({
+                              ...current,
+                              role: event.target.value as 'DRIVER' | 'SITE_SUPERVISOR' | 'SAFETY_OFFICER' | 'TENANT_ADMIN',
+                              site_id: event.target.value === 'TENANT_ADMIN' ? '' : current.site_id,
+                              site_ids: event.target.value === 'SAFETY_OFFICER' ? current.site_ids : [],
+                              assigned_vehicle_id: event.target.value === 'DRIVER' ? current.assigned_vehicle_id : '',
+                            }))
+                          }
+                        >
+                          {assignableRoles.map((value) => (
+                            <option key={value} value={value}>
+                              {value === 'TENANT_ADMIN'
+                                ? 'Admin'
+                                : value === 'SITE_SUPERVISOR'
+                                  ? 'Site Supervisor'
+                                  : value === 'SAFETY_OFFICER'
+                                    ? 'Safety Officer'
+                                    : 'Driver'}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                       <label className="field">
                         <span>Full name</span>
                         <input value={driverForm.full_name} onChange={(event) => setDriverForm((current) => ({ ...current, full_name: event.target.value }))} />
@@ -420,31 +555,60 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                         <span>Username</span>
                         <input value={driverForm.username} onChange={(event) => setDriverForm((current) => ({ ...current, username: event.target.value }))} />
                       </label>
-                      <label className="field">
-                        <span>Assigned site</span>
-                        <select value={driverForm.site_id} onChange={(event) => setDriverForm((current) => ({ ...current, site_id: event.target.value }))}>
-                          <option value="">Unassigned</option>
-                          {sites.map((site) => (
-                            <option key={site.id} value={site.id}>
-                              {formatSiteDisplayName(site)}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="field">
-                        <span>Assigned vehicle</span>
-                        <select
-                          value={driverForm.assigned_vehicle_id}
-                          onChange={(event) => setDriverForm((current) => ({ ...current, assigned_vehicle_id: event.target.value }))}
-                        >
-                          <option value="">Unassigned</option>
-                          {vehicles.map((vehicle) => (
-                            <option key={vehicle.id} value={vehicle.id}>
-                              {formatFleetCode(vehicle.fleet_no)} {vehicle.plate_no ? `(${formatFleetCode(vehicle.plate_no)})` : ''}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                      {driverForm.role === 'SAFETY_OFFICER' ? (
+                        <label className="field">
+                          <span>Assigned sites</span>
+                          <select
+                            multiple
+                            value={driverForm.site_ids}
+                            onChange={(event) =>
+                              setDriverForm((current) => ({
+                                ...current,
+                                site_ids: Array.from(event.target.selectedOptions).map((option) => option.value),
+                              }))
+                            }
+                          >
+                            {sites.map((site) => (
+                              <option key={site.id} value={site.id}>
+                                {formatSiteDisplayName(site)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : driverForm.role === 'TENANT_ADMIN' ? (
+                        <label className="field">
+                          <span>Scope</span>
+                          <input value="Tenant-wide" readOnly />
+                        </label>
+                      ) : (
+                        <label className="field">
+                          <span>Assigned site</span>
+                          <select value={driverForm.site_id} onChange={(event) => setDriverForm((current) => ({ ...current, site_id: event.target.value }))}>
+                            <option value="">Unassigned</option>
+                            {sites.map((site) => (
+                              <option key={site.id} value={site.id}>
+                                {formatSiteDisplayName(site)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                      {driverForm.role === 'DRIVER' ? (
+                        <label className="field">
+                          <span>Assigned vehicle</span>
+                          <select
+                            value={driverForm.assigned_vehicle_id}
+                            onChange={(event) => setDriverForm((current) => ({ ...current, assigned_vehicle_id: event.target.value }))}
+                          >
+                            <option value="">Unassigned</option>
+                            {vehicles.map((vehicle) => (
+                              <option key={vehicle.id} value={vehicle.id}>
+                                {formatFleetCode(vehicle.fleet_no)} {vehicle.plate_no ? `(${formatFleetCode(vehicle.plate_no)})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
                       <label className="checkbox-field">
                         <input
                           type="checkbox"
@@ -462,6 +626,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                         </button>
                       </div>
                     </div>
+                    {driverForm.role === 'DRIVER' || driverForm.role === 'SITE_SUPERVISOR' ? (
                     <div className="inline-grid four master-form-grid">
                       <label className="field">
                         <span>Type</span>
@@ -496,6 +661,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                         </button>
                       </div>
                     </div>
+                    ) : null}
                     {complianceRows.length > 0 ? (
                       <div className="table">
                         <div className="table-row table-head drivers-table-row">

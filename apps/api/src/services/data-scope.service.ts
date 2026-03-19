@@ -29,6 +29,7 @@ export async function resolveDataScope(tenantId: string, auth: AuthContext): Pro
   }
 
   if (
+    auth.role === 'TENANT_ADMIN' ||
     auth.role === 'HEAD_OFFICE_ADMIN' ||
     auth.role === 'TRANSPORT_MANAGER' ||
     auth.role === 'COMPANY_ADMIN' ||
@@ -41,7 +42,7 @@ export async function resolveDataScope(tenantId: string, auth: AuthContext): Pro
     };
   }
 
-  if (auth.role !== 'SITE_SUPERVISOR') {
+  if (auth.role !== 'SITE_SUPERVISOR' && auth.role !== 'SAFETY_OFFICER' && auth.role !== 'DRIVER') {
     return {
       isFullTenantScope: false,
       allowedSiteIds: [],
@@ -49,7 +50,16 @@ export async function resolveDataScope(tenantId: string, auth: AuthContext): Pro
     };
   }
 
-  const [assignments, legacyAssignments] = await Promise.all([
+  const [siteAccessAssignments, userSiteAssignments, supervisorSiteAssignments] = await Promise.all([
+    prisma.userSiteAccess.findMany({
+      where: {
+        tenantId,
+        userId: auth.sub,
+      },
+      select: {
+        siteId: true,
+      },
+    }),
     prisma.userSiteAssignment.findMany({
       where: {
         tenantId,
@@ -70,5 +80,9 @@ export async function resolveDataScope(tenantId: string, auth: AuthContext): Pro
     }),
   ]);
 
-  return normalizeScope([...assignments.map((item) => item.siteId), ...legacyAssignments.map((item) => item.siteId)]);
+  return normalizeScope([
+    ...siteAccessAssignments.map((item) => item.siteId),
+    ...userSiteAssignments.map((item) => item.siteId),
+    ...supervisorSiteAssignments.map((item) => item.siteId),
+  ]);
 }

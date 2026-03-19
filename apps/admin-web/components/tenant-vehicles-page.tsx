@@ -20,7 +20,8 @@ import {
   updateMasterVehicle,
 } from '../lib/api';
 import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
-import { getTenantTokenKey } from '../lib/tenant-session';
+import { canManageMasterDataRole } from '../lib/roles';
+import { getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
@@ -61,6 +62,8 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
   });
   const [vehicleMessage, setVehicleMessage] = useState<string | null>(null);
   const [vehicleSaving, setVehicleSaving] = useState(false);
+  const [role, setRole] = useState<TenantStaffRole | null>(null);
+  const canManageMasterData = canManageMasterDataRole(role);
 
   async function refreshVehicleData(currentSearch: string) {
     if (!host || !subdomain) {
@@ -71,6 +74,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
       router.replace('/');
       return;
     }
+    setRole(getTenantRoleFromToken(token));
     const [vehiclesResult, typesResult, sitesResult, driversResult] = await Promise.all([
       listMasterVehicles(host, token, { limit: '100', search: currentSearch || undefined }),
       listComplianceTypes(host, token, { applies_to: 'VEHICLE' }),
@@ -95,6 +99,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
       router.replace('/');
       return;
     }
+    setRole(getTenantRoleFromToken(token));
 
     setLoading(true);
     setError(null);
@@ -126,6 +131,9 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
   }, [host, router, search, subdomain]);
 
   function startCreate() {
+    if (!canManageMasterData) {
+      return;
+    }
     setEditingId('new');
     setSelectedVehicleId('');
     setVehicleForm({
@@ -143,6 +151,9 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
   }
 
   function startEdit(row: VehicleLookupRecord) {
+    if (!canManageMasterData) {
+      return;
+    }
     setEditingId(row.id);
     setSelectedVehicleId(row.id);
     setVehicleForm({
@@ -160,6 +171,10 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
   }
 
   async function saveVehicle() {
+    if (!canManageMasterData) {
+      setVehicleMessage('Your role is read-only for vehicle updates.');
+      return;
+    }
     if (!host || !subdomain) {
       return;
     }
@@ -239,6 +254,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
     if (subdomain) {
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
+    setRole(null);
     router.replace('/');
   }
 
@@ -272,6 +288,10 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
   }
 
   async function handleCreateRecord() {
+    if (!canManageMasterData) {
+      setComplianceMessage('Your role is read-only for compliance updates.');
+      return;
+    }
     if (!host || !subdomain || !selectedVehicleId || !complianceName.trim()) {
       return;
     }
@@ -307,6 +327,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
   return (
     <TenantSidebarLayout
       subdomain={subdomain ?? 'tenant'}
+      role={role}
       title="Vehicles monitoring"
       description="Vehicle list and operational context."
       onSignOut={handleLogout}
@@ -319,11 +340,13 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
             <span>Search</span>
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Fleet or plate" />
           </label>
-          <button className="button" type="button" onClick={startCreate}>
-            Add vehicle
-          </button>
+          {canManageMasterData ? (
+            <button className="button" type="button" onClick={startCreate}>
+              Add vehicle
+            </button>
+          ) : null}
         </div>
-        {editingId === 'new' ? (
+        {canManageMasterData && editingId === 'new' ? (
           <div className="inline-create-panel" data-testid="vehicles-edit-form">
             <div className="inline-grid four master-form-grid">
               <label className="field">
@@ -423,7 +446,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
               <span>Plate no</span>
               <span>Site</span>
               <span>Status</span>
-              <span>Edit</span>
+              <span>{canManageMasterData ? 'Edit' : 'Actions'}</span>
             </div>
             {rows.map((row) => (
               <Fragment key={row.id}>
@@ -437,18 +460,22 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
                     </span>
                   </span>
                   <span className="edit-action-cell">
-                    <button
-                      aria-label={`Edit ${row.fleet_no}`}
-                      className="button button-secondary edit-icon-button"
-                      title="Edit vehicle"
-                      type="button"
-                      onClick={() => startEdit(row)}
-                    >
-                      ✎
-                    </button>
+                    {canManageMasterData ? (
+                      <button
+                        aria-label={`Edit ${row.fleet_no}`}
+                        className="button button-secondary edit-icon-button"
+                        title="Edit vehicle"
+                        type="button"
+                        onClick={() => startEdit(row)}
+                      >
+                        ✎
+                      </button>
+                    ) : (
+                      '—'
+                    )}
                   </span>
                 </div>
-                {editingId === row.id ? (
+                {canManageMasterData && editingId === row.id ? (
                   <div className="table-row master-edit-row" data-testid="vehicles-edit-form">
                     <div className="inline-grid four master-form-grid">
                       <label className="field">

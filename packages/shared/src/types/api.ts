@@ -62,7 +62,7 @@ export interface TenantAdminSummary {
   email?: string | null;
   username: string;
   full_name: string;
-  role: 'COMPANY_ADMIN';
+  role: 'TRANSPORT_MANAGER';
 }
 
 export interface PlatformLoginResponse {
@@ -88,7 +88,15 @@ export interface TenantLoginResponse {
   token_type: 'Bearer';
   expires_in: string;
   tenant_id: string;
-  role: 'COMPANY_ADMIN' | 'SUPERVISOR' | 'SITE_SUPERVISOR' | 'TRANSPORT_MANAGER' | 'HEAD_OFFICE_ADMIN' | 'DRIVER';
+  role:
+    | 'TENANT_ADMIN'
+    | 'COMPANY_ADMIN'
+    | 'SUPERVISOR'
+    | 'SITE_SUPERVISOR'
+    | 'SAFETY_OFFICER'
+    | 'TRANSPORT_MANAGER'
+    | 'HEAD_OFFICE_ADMIN'
+    | 'DRIVER';
   actor_type: 'STAFF' | 'DRIVER';
 }
 
@@ -133,7 +141,7 @@ export interface DashboardRecentDriver {
   employee_no: string | null;
   username: string | null;
   full_name: string;
-  role: 'DRIVER' | 'SITE_SUPERVISOR';
+  role: 'DRIVER' | 'SITE_SUPERVISOR' | 'SAFETY_OFFICER' | 'TENANT_ADMIN' | 'TRANSPORT_MANAGER';
   created_at: string;
 }
 
@@ -421,10 +429,12 @@ export interface VehicleLookupRecord {
 
 export interface DriverLookupRecord {
   id: string;
+  role?: 'DRIVER' | 'SITE_SUPERVISOR' | 'SAFETY_OFFICER' | 'TENANT_ADMIN' | 'TRANSPORT_MANAGER';
   full_name: string;
   employee_no: string | null;
   username: string | null;
   is_active?: boolean;
+  site_ids?: string[];
   site?: {
     id: string;
     site_code: string;
@@ -582,7 +592,9 @@ export interface UpdateTenantNotificationSettingsRequest {
 }
 
 export type NotificationContactRole =
+  | 'TENANT_ADMIN'
   | 'SITE_SUPERVISOR'
+  | 'SAFETY_OFFICER'
   | 'TRANSPORT_MANAGER'
   | 'HEAD_OFFICE_ADMIN'
   | 'CUSTOM';

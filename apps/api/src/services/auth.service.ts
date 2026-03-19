@@ -31,6 +31,46 @@ export async function loginTenantStaff(
     throw new AppError(401, 'invalid_credentials', 'Invalid credentials.');
   }
 
+  if (user.role === UserRole.SITE_SUPERVISOR || user.role === UserRole.SAFETY_OFFICER || user.role === UserRole.DRIVER) {
+    const [accessSitesCount, assignedSitesCount, legacyAssignedSitesCount] = await Promise.all([
+      prisma.userSiteAccess.count({
+        where: {
+          tenantId: tenant.id,
+          userId: user.id,
+        },
+      }),
+      prisma.userSiteAssignment.count({
+        where: {
+          tenantId: tenant.id,
+          userId: user.id,
+        },
+      }),
+      prisma.supervisorSite.count({
+        where: {
+          tenantId: tenant.id,
+          supervisorUserId: user.id,
+        },
+      }),
+    ]);
+    const totalSites = accessSitesCount + assignedSitesCount + legacyAssignedSitesCount;
+
+    if (totalSites === 0) {
+      throw new AppError(
+        403,
+        'site_scope_required',
+        'This account must be assigned to at least one site before sign in.',
+      );
+    }
+
+    if ((user.role === UserRole.SITE_SUPERVISOR || user.role === UserRole.DRIVER) && totalSites !== 1) {
+      throw new AppError(
+        403,
+        'single_site_scope_required',
+        'This role must be assigned to exactly one site before sign in.',
+      );
+    }
+  }
+
   const actorType = user.role === UserRole.DRIVER ? 'DRIVER' : 'STAFF';
 
   return {

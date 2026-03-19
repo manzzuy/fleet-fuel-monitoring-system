@@ -79,7 +79,7 @@ export const platformTenantRecordSchema = z.object({
       email: z.string().email().nullable().optional(),
       username: z.string(),
       full_name: z.string(),
-      role: z.literal('COMPANY_ADMIN'),
+      role: z.literal('TRANSPORT_MANAGER'),
     })
     .optional(),
 });
@@ -89,7 +89,16 @@ export const tenantLoginResponseSchema = z.object({
   token_type: z.literal('Bearer'),
   expires_in: z.string(),
   tenant_id: z.string().uuid(),
-  role: z.enum(['COMPANY_ADMIN', 'SUPERVISOR', 'SITE_SUPERVISOR', 'TRANSPORT_MANAGER', 'HEAD_OFFICE_ADMIN', 'DRIVER']),
+  role: z.enum([
+    'TENANT_ADMIN',
+    'COMPANY_ADMIN',
+    'SUPERVISOR',
+    'SITE_SUPERVISOR',
+    'SAFETY_OFFICER',
+    'TRANSPORT_MANAGER',
+    'HEAD_OFFICE_ADMIN',
+    'DRIVER',
+  ]),
   actor_type: z.enum(['STAFF', 'DRIVER']),
 });
 

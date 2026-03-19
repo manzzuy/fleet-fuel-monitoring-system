@@ -27,7 +27,7 @@ export interface NormalizedDriverRow {
   fullName: string;
   email: string | null;
   phone: string | null;
-  role: 'DRIVER' | 'SITE_SUPERVISOR';
+  role: 'DRIVER' | 'SITE_SUPERVISOR' | 'SAFETY_OFFICER';
   siteCode: string | null;
   drivingLicenseNo: string | null;
   drivingLicenseExpiry: Date | null;
