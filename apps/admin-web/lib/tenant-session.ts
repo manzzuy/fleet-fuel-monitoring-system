@@ -2,6 +2,8 @@ export function getTenantTokenKey(subdomain: string) {
   return `tenant_staff_access_token:${subdomain}`;
 }
 
+export const TENANT_FORCE_PASSWORD_COOKIE = 'ff_force_password_change';
+
 export type TenantStaffRole =
   | 'TENANT_ADMIN'
   | 'COMPANY_ADMIN'
@@ -14,6 +16,7 @@ export type TenantStaffRole =
 
 interface JwtClaims {
   role?: string;
+  force_password_change?: boolean;
 }
 
 export function getTenantAccessToken(subdomain: string): string | null {
@@ -53,6 +56,20 @@ export function getTenantRoleFromToken(token: string): TenantStaffRole | null {
     return role;
   }
   return null;
+}
+
+export function isForcePasswordChangeToken(token: string): boolean {
+  const claims = decodeClaims(token);
+  return claims?.force_password_change === true;
+}
+
+export function setForcePasswordChangeCookie(subdomain: string, enabled: boolean) {
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  if (enabled) {
+    document.cookie = `${TENANT_FORCE_PASSWORD_COOKIE}=${encodeURIComponent(subdomain)}; Path=/; SameSite=Lax${secure}`;
+    return;
+  }
+  document.cookie = `${TENANT_FORCE_PASSWORD_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
 }
 
 export function getTenantRole(subdomain: string): TenantStaffRole | null {

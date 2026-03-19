@@ -1,10 +1,15 @@
 import { Router } from 'express';
 
-import { platformLoginRequestSchema, tenantLoginRequestSchema } from '@fleet-fuel/shared';
+import {
+  platformLoginRequestSchema,
+  tenantChangePasswordRequestSchema,
+  tenantLoginRequestSchema,
+} from '@fleet-fuel/shared';
 
+import { authMiddleware } from '../middleware/auth';
 import { loginRateLimitMiddleware } from '../middleware/rate-limit';
 import { tenantMiddleware } from '../middleware/tenant';
-import { loginTenantStaff } from '../services/auth.service';
+import { changeTenantStaffPassword, loginTenantStaff } from '../services/auth.service';
 import { loginPlatformOwner } from '../services/platform-auth.service';
 import { asyncHandler } from '../utils/http';
 
@@ -27,6 +32,18 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const payload = tenantLoginRequestSchema.parse(req.body);
     const response = await loginTenantStaff(req.tenant!, payload);
+    res.json(response);
+  }),
+);
+
+authRouter.post(
+  '/change-password',
+  loginRateLimitMiddleware,
+  tenantMiddleware,
+  authMiddleware,
+  asyncHandler(async (req, res) => {
+    const payload = tenantChangePasswordRequestSchema.parse(req.body);
+    const response = await changeTenantStaffPassword(req.tenant!, req.auth!.sub, payload);
     res.json(response);
   }),
 );

@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { tenantLogin } from '../lib/api';
-import { getTenantTokenKey } from '../lib/tenant-session';
+import {
+  getTenantTokenKey,
+  isForcePasswordChangeToken,
+  setForcePasswordChangeCookie,
+} from '../lib/tenant-session';
 
 interface TenantLoginPanelProps {
   host: string;
@@ -23,7 +27,13 @@ export function TenantLoginPanel({ host, subdomain }: TenantLoginPanelProps) {
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
 
     if (token) {
-      router.replace('/dashboard');
+      if (isForcePasswordChangeToken(token)) {
+        setForcePasswordChangeCookie(subdomain, true);
+        router.replace('/change-password');
+      } else {
+        setForcePasswordChangeCookie(subdomain, false);
+        router.replace('/dashboard');
+      }
     }
   }, [router, subdomain]);
 
@@ -37,8 +47,15 @@ export function TenantLoginPanel({ host, subdomain }: TenantLoginPanelProps) {
 
     try {
       const response = await tenantLogin(host, { identifier: identifierValue, password: passwordValue });
+      const requiresPasswordChange = (response as { force_password_change?: boolean }).force_password_change === true;
       window.localStorage.setItem(getTenantTokenKey(subdomain), response.access_token);
-      router.push('/dashboard');
+      if (requiresPasswordChange) {
+        setForcePasswordChangeCookie(subdomain, true);
+        router.push('/change-password');
+      } else {
+        setForcePasswordChangeCookie(subdomain, false);
+        router.push('/dashboard');
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Sign-in failed.');
     }

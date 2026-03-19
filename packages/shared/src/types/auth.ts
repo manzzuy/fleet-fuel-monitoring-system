@@ -23,4 +23,5 @@ export interface JwtAccessTokenClaims {
   role: AuthRole;
   actor_type: ActorType;
   support_mode?: boolean;
+  force_password_change?: boolean;
 }

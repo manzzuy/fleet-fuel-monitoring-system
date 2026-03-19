@@ -101,6 +101,31 @@ export const tenantLoginResponseSchema = z.object({
     'DRIVER',
   ]),
   actor_type: z.enum(['STAFF', 'DRIVER']),
+  force_password_change: z.boolean().default(false),
+});
+
+export const tenantChangePasswordRequestSchema = z.object({
+  current_password: z.string().min(1),
+  new_password: passwordSchema,
+});
+
+export const tenantChangePasswordResponseSchema = z.object({
+  access_token: z.string(),
+  token_type: z.literal('Bearer'),
+  expires_in: z.string(),
+  tenant_id: z.string().uuid(),
+  role: z.enum([
+    'TENANT_ADMIN',
+    'COMPANY_ADMIN',
+    'SUPERVISOR',
+    'SITE_SUPERVISOR',
+    'SAFETY_OFFICER',
+    'TRANSPORT_MANAGER',
+    'HEAD_OFFICE_ADMIN',
+    'DRIVER',
+  ]),
+  actor_type: z.enum(['STAFF', 'DRIVER']),
+  force_password_change: z.literal(false),
 });
 
 export type PlatformLoginRequest = z.infer<typeof platformLoginRequestSchema>;

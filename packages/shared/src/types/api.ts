@@ -156,6 +156,30 @@ export interface TenantLoginResponse {
     | 'HEAD_OFFICE_ADMIN'
     | 'DRIVER';
   actor_type: 'STAFF' | 'DRIVER';
+  force_password_change: boolean;
+}
+
+export interface TenantChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}
+
+export interface TenantChangePasswordResponse {
+  access_token: string;
+  token_type: 'Bearer';
+  expires_in: string;
+  tenant_id: string;
+  role:
+    | 'TENANT_ADMIN'
+    | 'COMPANY_ADMIN'
+    | 'SUPERVISOR'
+    | 'SITE_SUPERVISOR'
+    | 'SAFETY_OFFICER'
+    | 'TRANSPORT_MANAGER'
+    | 'HEAD_OFFICE_ADMIN'
+    | 'DRIVER';
+  actor_type: 'STAFF' | 'DRIVER';
+  force_password_change: false;
 }
 
 export type ScopeStatus = 'full_tenant_scope' | 'site_scope_limited' | 'no_site_scope_assigned';

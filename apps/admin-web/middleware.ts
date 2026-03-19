@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server';
 
 const TENANT_QUERY_PARAM = 'tenant';
 const TENANT_COOKIE = 'ff_tenant_override';
+const TENANT_FORCE_PASSWORD_COOKIE = 'ff_force_password_change';
 const TENANT_OVERRIDE_REGEX = /^[a-z0-9-]+$/;
+const CHANGE_PASSWORD_PATH = '/change-password';
 
 function normalizeTenant(value: string | null) {
   const candidate = value?.trim().toLowerCase();
@@ -34,6 +36,7 @@ export function middleware(request: NextRequest) {
   const platformBaseDomain = (process.env.NEXT_PUBLIC_PLATFORM_BASE_DOMAIN ?? 'platform.test').toLowerCase();
   const hostTenant = extractHostTenant(request.headers.get('host'), platformBaseDomain);
   const pathname = request.nextUrl.pathname;
+  const forcedTenantFromCookie = normalizeTenant(request.cookies.get(TENANT_FORCE_PASSWORD_COOKIE)?.value ?? null);
 
   if (tenantFromQuery) {
     const response = NextResponse.next();
@@ -44,6 +47,19 @@ export function middleware(request: NextRequest) {
       secure: request.nextUrl.protocol === 'https:',
     });
     return response;
+  }
+
+  if (
+    forcedTenantFromCookie &&
+    (tenantFromCookie === forcedTenantFromCookie || hostTenant === forcedTenantFromCookie) &&
+    pathname !== '/' &&
+    pathname !== CHANGE_PASSWORD_PATH &&
+    !pathname.startsWith('/_next')
+  ) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = CHANGE_PASSWORD_PATH;
+    redirectUrl.searchParams.set(TENANT_QUERY_PARAM, forcedTenantFromCookie);
+    return NextResponse.redirect(redirectUrl);
   }
 
   // Keep root path available for Platform Owner console on non-tenant hosts.

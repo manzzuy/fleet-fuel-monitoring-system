@@ -55,6 +55,16 @@ export function staffSurfaceAuthMiddleware(req: Request, _res: Response, next: N
     return next(new AppError(403, 'forbidden_surface_access', 'This token cannot access staff/admin routes.'));
   }
 
+  if (req.auth.force_password_change) {
+    return next(
+      new AppError(
+        403,
+        'password_change_required',
+        'Password change is required before accessing staff/admin routes.',
+      ),
+    );
+  }
+
   next();
 }
 
@@ -65,6 +75,16 @@ export function driverSurfaceAuthMiddleware(req: Request, _res: Response, next: 
 
   if (req.auth.actor_type !== 'DRIVER' || !DRIVER_SURFACE_ROLES.includes(req.auth.role as UserRole)) {
     return next(new AppError(403, 'forbidden_surface_access', 'This token cannot access driver routes.'));
+  }
+
+  if (req.auth.force_password_change) {
+    return next(
+      new AppError(
+        403,
+        'password_change_required',
+        'Password change is required before accessing driver routes.',
+      ),
+    );
   }
 
   next();

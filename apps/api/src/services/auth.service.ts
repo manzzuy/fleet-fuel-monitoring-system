@@ -1,11 +1,16 @@
-import type { TenantLoginRequest, TenantLoginResponse } from '@fleet-fuel/shared';
+import type {
+  TenantChangePasswordRequest,
+  TenantChangePasswordResponse,
+  TenantLoginRequest,
+  TenantLoginResponse,
+} from '@fleet-fuel/shared';
 import type { TenantContext } from '../types/http';
 import { UserRole } from '@prisma/client';
 
 import { prisma } from '../db/prisma';
 import { AppError } from '../utils/errors';
 import { signAccessToken } from '../utils/jwt';
-import { verifyPassword } from '../utils/password';
+import { hashPassword, verifyPassword } from '../utils/password';
 
 export async function loginTenantStaff(
   tenant: TenantContext,
@@ -30,6 +35,12 @@ export async function loginTenantStaff(
   if (!valid) {
     throw new AppError(401, 'invalid_credentials', 'Invalid credentials.');
   }
+
+  const userAuth = await prisma.userAuth.findUnique({
+    where: { userId: user.id },
+    select: { forcePasswordChange: true },
+  });
+  const forcePasswordChange = userAuth?.forcePasswordChange ?? false;
 
   if (user.role === UserRole.SITE_SUPERVISOR || user.role === UserRole.SAFETY_OFFICER || user.role === UserRole.DRIVER) {
     const [accessSitesCount, assignedSitesCount, legacyAssignedSitesCount] = await Promise.all([
@@ -79,11 +90,102 @@ export async function loginTenantStaff(
       tenant_id: tenant.id,
       role: user.role,
       actor_type: actorType,
+      force_password_change: forcePasswordChange,
     }),
     token_type: 'Bearer',
     expires_in: '15m',
     tenant_id: tenant.id,
     role: user.role,
     actor_type: actorType,
+    force_password_change: forcePasswordChange,
+  };
+}
+
+export async function changeTenantStaffPassword(
+  tenant: TenantContext,
+  authUserId: string,
+  payload: TenantChangePasswordRequest,
+): Promise<TenantChangePasswordResponse> {
+  const user = await prisma.user.findFirst({
+    where: {
+      id: authUserId,
+      tenantId: tenant.id,
+      isActive: true,
+    },
+    select: {
+      id: true,
+      tenantId: true,
+      role: true,
+      username: true,
+      employeeNo: true,
+      passwordHash: true,
+    },
+  });
+
+  if (!user) {
+    throw new AppError(404, 'user_not_found', 'User account not found.');
+  }
+
+  const valid = await verifyPassword(user.passwordHash, payload.current_password);
+  if (!valid) {
+    throw new AppError(401, 'invalid_credentials', 'Current password is incorrect.');
+  }
+
+  const passwordHash = await hashPassword(payload.new_password);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
+
+    await tx.userAuth.upsert({
+      where: { userId: user.id },
+      update: {
+        passwordHash,
+        forcePasswordChange: false,
+      },
+      create: {
+        userId: user.id,
+        passwordHash,
+        forcePasswordChange: false,
+      },
+    });
+
+    if (user.username || user.employeeNo) {
+      const projection = await tx.driver.findFirst({
+        where: {
+          tenantId: tenant.id,
+          OR: [
+            ...(user.username ? [{ username: user.username }] : []),
+            ...(user.employeeNo ? [{ employeeNumber: user.employeeNo }] : []),
+          ],
+        },
+        select: { id: true },
+      });
+      if (projection) {
+        await tx.driver.update({
+          where: { id: projection.id },
+          data: { passwordHash },
+        });
+      }
+    }
+  });
+
+  const actorType = user.role === UserRole.DRIVER ? 'DRIVER' : 'STAFF';
+  return {
+    access_token: signAccessToken({
+      sub: user.id,
+      tenant_id: tenant.id,
+      role: user.role,
+      actor_type: actorType,
+      force_password_change: false,
+    }),
+    token_type: 'Bearer',
+    expires_in: '15m',
+    tenant_id: tenant.id,
+    role: user.role,
+    actor_type: actorType,
+    force_password_change: false,
   };
 }

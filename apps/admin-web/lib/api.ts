@@ -100,6 +100,29 @@ export interface MasterTankWritePayload {
   site_id?: string;
 }
 
+export interface TenantChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}
+
+export interface TenantChangePasswordResponse {
+  access_token: string;
+  token_type: 'Bearer';
+  expires_in: string;
+  tenant_id: string;
+  role:
+    | 'TENANT_ADMIN'
+    | 'COMPANY_ADMIN'
+    | 'SUPERVISOR'
+    | 'SITE_SUPERVISOR'
+    | 'SAFETY_OFFICER'
+    | 'TRANSPORT_MANAGER'
+    | 'HEAD_OFFICE_ADMIN'
+    | 'DRIVER';
+  actor_type: 'STAFF' | 'DRIVER';
+  force_password_change: false;
+}
+
 async function parseJson<T>(response: Response): Promise<T> {
   const payload = (await response.json().catch(() => null)) as (ErrorResponse & Record<string, unknown>) | null;
 
@@ -152,6 +175,24 @@ export async function tenantLogin(
   });
 
   return parseJson<TenantLoginResponse>(response);
+}
+
+export async function tenantChangePassword(
+  tenantHost: string,
+  accessToken: string,
+  payload: TenantChangePasswordRequest,
+): Promise<TenantChangePasswordResponse> {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/auth/change-password`, tenantHost), {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+      'x-forwarded-host': tenantHost,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<TenantChangePasswordResponse>(response);
 }
 
 export async function listTenants(accessToken: string): Promise<{ items: PlatformTenantRecord[] }> {
