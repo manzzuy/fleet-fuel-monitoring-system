@@ -157,6 +157,8 @@ export interface TenantLoginResponse {
     | 'DRIVER';
   actor_type: 'STAFF' | 'DRIVER';
   force_password_change: boolean;
+  full_name?: string;
+  username?: string | null;
 }
 
 export interface TenantChangePasswordRequest {
@@ -180,6 +182,8 @@ export interface TenantChangePasswordResponse {
     | 'DRIVER';
   actor_type: 'STAFF' | 'DRIVER';
   force_password_change: false;
+  full_name?: string;
+  username?: string | null;
 }
 
 export type ScopeStatus = 'full_tenant_scope' | 'site_scope_limited' | 'no_site_scope_assigned';

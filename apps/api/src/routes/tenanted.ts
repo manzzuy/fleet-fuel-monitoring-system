@@ -97,11 +97,16 @@ const contactParamsSchema = z.object({
 const masterIdParamsSchema = z.object({
   id: z.string().uuid(),
 });
+const operationalUsernameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .regex(/^[a-z0-9._-]+$/, 'Username must use lowercase letters, numbers, dot, underscore, or hyphen only.');
 const createMasterDriverSchema = z.object({
   role: z.enum(['DRIVER', 'SITE_SUPERVISOR', 'SAFETY_OFFICER', 'TENANT_ADMIN']).optional(),
   full_name: z.string().trim().min(1),
   employee_no: z.string().trim().min(1).optional().nullable(),
-  username: z.string().trim().min(1),
+  username: operationalUsernameSchema,
   site_id: z.string().uuid().optional().nullable(),
   site_ids: z.array(z.string().uuid()).optional(),
   assigned_vehicle_id: z.string().uuid().optional().nullable(),

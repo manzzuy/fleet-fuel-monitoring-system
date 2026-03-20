@@ -53,6 +53,11 @@ const supportUserParamsSchema = z.object({
   tenantId: z.string().uuid(),
   userId: z.string().uuid(),
 });
+const operationalUsernameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .regex(/^[a-z0-9._-]+$/, 'Username must use lowercase letters, numbers, dot, underscore, or hyphen only.');
 const supportUserUpdateSchema = z.object({
   role: z
     .enum([
@@ -68,7 +73,7 @@ const supportUserUpdateSchema = z.object({
     .optional(),
   full_name: z.string().trim().min(1).optional(),
   email: z.string().trim().email().optional().nullable(),
-  username: z.string().trim().min(1).optional().nullable(),
+  username: operationalUsernameSchema.optional().nullable(),
   employee_no: z.string().trim().min(1).optional().nullable(),
   is_active: z.boolean().optional(),
   site_id: z.string().uuid().optional().nullable(),

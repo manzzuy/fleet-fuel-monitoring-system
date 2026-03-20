@@ -17,6 +17,8 @@ export type TenantStaffRole =
 interface JwtClaims {
   role?: string;
   force_password_change?: boolean;
+  full_name?: string;
+  username?: string | null;
 }
 
 export function getTenantAccessToken(subdomain: string): string | null {
@@ -78,4 +80,20 @@ export function getTenantRole(subdomain: string): TenantStaffRole | null {
     return null;
   }
   return getTenantRoleFromToken(token);
+}
+
+export function getTenantIdentityFromToken(token: string): { fullName: string | null; username: string | null } {
+  const claims = decodeClaims(token);
+  const fullName = claims?.full_name?.trim() || null;
+  const username = claims?.username?.trim() || null;
+  return { fullName, username };
+}
+
+export function getTenantDisplayName(subdomain: string): string | null {
+  const token = getTenantAccessToken(subdomain);
+  if (!token) {
+    return null;
+  }
+  const identity = getTenantIdentityFromToken(token);
+  return identity.fullName ?? identity.username ?? null;
 }

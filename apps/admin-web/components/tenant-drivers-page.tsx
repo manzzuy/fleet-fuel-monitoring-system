@@ -46,6 +46,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
   const [scopeStatus, setScopeStatus] = useState<ScopeStatus>('full_tenant_scope');
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [complianceTypes, setComplianceTypes] = useState<ComplianceTypeRecord[]>([]);
@@ -261,6 +262,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
   }, [rows, selectedDriverId]);
 
   const profileDriver = profileDriverId ? rows.find((item) => item.id === profileDriverId) ?? null : null;
+  const visibleRows = showInactive ? rows : rows.filter((row) => row.is_active);
 
   function handleLogout() {
     if (subdomain) {
@@ -350,6 +352,10 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
             <span>Search</span>
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, role, employee, username" />
           </label>
+          <label className="checkbox-field compact">
+            <input checked={showInactive} onChange={(event) => setShowInactive(event.target.checked)} type="checkbox" />
+            <span>Show inactive</span>
+          </label>
           {canManageMasterData ? (
             <button className="button" type="button" onClick={startCreate}>
               Add user
@@ -399,7 +405,15 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
               </label>
               <label className="field">
                 <span>Username</span>
-                <input value={driverForm.username} onChange={(event) => setDriverForm((current) => ({ ...current, username: event.target.value }))} />
+                <input
+                  value={driverForm.username}
+                  onChange={(event) =>
+                    setDriverForm((current) => ({
+                      ...current,
+                      username: event.target.value.toLowerCase().replace(/\s+/g, ''),
+                    }))
+                  }
+                />
               </label>
               {driverForm.role === 'SAFETY_OFFICER' ? (
                 <label className="field">
@@ -476,8 +490,8 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
         ) : null}
         {loading ? <p className="status">Loading drivers...</p> : null}
         {error ? <p className="status error">{error}</p> : null}
-        {!loading && !error && rows.length === 0 ? <p className="status">No drivers found.</p> : null}
-        {!loading && !error && rows.length > 0 ? (
+        {!loading && !error && visibleRows.length === 0 ? <p className="status">No users found.</p> : null}
+        {!loading && !error && visibleRows.length > 0 ? (
           <div className="table">
             <div className="table-row table-head drivers-master-row">
               <span>Full name</span>
@@ -488,7 +502,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
               <span>Status</span>
               <span>{canManageMasterData ? 'Edit' : 'Actions'}</span>
             </div>
-            {rows.map((row) => (
+            {visibleRows.map((row) => (
               <Fragment key={row.id}>
                 <div className={`table-row drivers-master-row ${editingId === row.id ? 'row-highlight' : ''}`}>
                   <span>
@@ -505,7 +519,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                   </span>
                   <span>{row.role ? row.role.replaceAll('_', ' ') : 'DRIVER'}</span>
                   <span>{row.employee_no ?? '—'}</span>
-                  <span>{row.username ?? '—'}</span>
+                  <span>{row.is_active ? row.username ?? '—' : '—'}</span>
                   <span>
                     {row.role === 'SAFETY_OFFICER' && row.site_ids && row.site_ids.length > 1
                       ? `${row.site_ids.length} sites`
@@ -583,7 +597,15 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                       </label>
                       <label className="field">
                         <span>Username</span>
-                        <input value={driverForm.username} onChange={(event) => setDriverForm((current) => ({ ...current, username: event.target.value }))} />
+                        <input
+                          value={driverForm.username}
+                          onChange={(event) =>
+                            setDriverForm((current) => ({
+                              ...current,
+                              username: event.target.value.toLowerCase().replace(/\s+/g, ''),
+                            }))
+                          }
+                        />
                       </label>
                       {driverForm.role === 'SAFETY_OFFICER' ? (
                         <label className="field">

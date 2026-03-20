@@ -90,6 +90,8 @@ export async function loginTenantStaff(
       tenant_id: tenant.id,
       role: user.role,
       actor_type: actorType,
+      full_name: user.fullName,
+      username: user.username,
       force_password_change: forcePasswordChange,
     }),
     token_type: 'Bearer',
@@ -98,6 +100,8 @@ export async function loginTenantStaff(
     role: user.role,
     actor_type: actorType,
     force_password_change: forcePasswordChange,
+    full_name: user.fullName,
+    username: user.username,
   };
 }
 
@@ -116,6 +120,7 @@ export async function changeTenantStaffPassword(
       id: true,
       tenantId: true,
       role: true,
+      fullName: true,
       username: true,
       employeeNo: true,
       passwordHash: true,
@@ -179,6 +184,8 @@ export async function changeTenantStaffPassword(
       tenant_id: tenant.id,
       role: user.role,
       actor_type: actorType,
+      full_name: user.fullName,
+      username: user.username,
       force_password_change: false,
     }),
     token_type: 'Bearer',
@@ -187,5 +194,7 @@ export async function changeTenantStaffPassword(
     role: user.role,
     actor_type: actorType,
     force_password_change: false,
+    full_name: user.fullName,
+    username: user.username,
   };
 }

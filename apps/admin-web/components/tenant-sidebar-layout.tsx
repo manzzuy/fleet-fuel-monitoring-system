@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import type { TenantStaffRole } from '../lib/tenant-session';
-import { getTenantRole } from '../lib/tenant-session';
+import { getTenantDisplayName, getTenantRole } from '../lib/tenant-session';
 import { canAccessTenantAdminPath, formatRoleLabel, isSafetyOfficerRole, isSiteSupervisorRole } from '../lib/roles';
 
 const navItems = [
@@ -53,10 +53,12 @@ export function TenantSidebarLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [tokenRole, setTokenRole] = useState<TenantStaffRole | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
 
   useEffect(() => {
     const storedRole = getTenantRole(subdomain);
     setTokenRole(storedRole);
+    setDisplayName(getTenantDisplayName(subdomain));
   }, [subdomain]);
 
   const effectiveRole = role ?? tokenRole;
@@ -105,7 +107,9 @@ export function TenantSidebarLayout({
             </div>
             <div className="tenant-session-meta" data-testid="tenant-session-meta">
               <span>Tenant: {subdomain}</span>
-              <span>Signed in as: {formatRoleLabel(effectiveRole)}</span>
+              <span>
+                Signed in as: {displayName ?? 'User'} ({formatRoleLabel(effectiveRole)})
+              </span>
             </div>
           </div>
         </section>
