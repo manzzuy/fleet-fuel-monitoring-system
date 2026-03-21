@@ -53,6 +53,7 @@ import {
   updateMasterSite,
   updateMasterTank,
   updateMasterVehicle,
+  resetMasterDriverPassword,
 } from '../services/master-data.service';
 import {
   listTenantDrivers,
@@ -351,6 +352,27 @@ tenantedRouter.put(
     });
     res.json({
       ok: true,
+      request_id: req.requestId,
+    });
+  }),
+);
+
+tenantedRouter.post(
+  '/master-data/drivers/:id/reset-password',
+  ...staffAuth,
+  asyncHandler(async (req, res) => {
+    ensureCanManageMasterData(req.auth!, req.dataScope!);
+    const params = masterIdParamsSchema.parse(req.params);
+    const result = await resetMasterDriverPassword({
+      tenantId: req.tenant!.id,
+      actorId: req.auth!.sub,
+      actorRole: req.auth!.role,
+      scope: req.dataScope!,
+      id: params.id,
+      route: '/tenanted/master-data/drivers/:id/reset-password',
+    });
+    res.json({
+      ...result,
       request_id: req.requestId,
     });
   }),

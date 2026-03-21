@@ -19,7 +19,7 @@ import {
   getPreviousOdometerKm,
   validateOdometerAgainstPrevious,
 } from '../lib/odometer-workflow';
-import { driverTokenKey } from '../lib/session';
+import { driverTokenKey, isForcePasswordChangeToken } from '../lib/session';
 import { DriverShell } from './driver-shell';
 import { PaperChecklistRenderer } from '../../../packages/shared/ui/paper-checklist-renderer';
 
@@ -457,6 +457,10 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
       router.replace('/');
       return;
     }
+    if (isForcePasswordChangeToken(token)) {
+      router.replace('/change-password');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -775,6 +779,10 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
     const token = window.localStorage.getItem(driverTokenKey(subdomain));
     if (!token) {
       router.replace('/');
+      return;
+    }
+    if (isForcePasswordChangeToken(token)) {
+      router.replace('/change-password');
       return;
     }
 

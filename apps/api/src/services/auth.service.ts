@@ -3,6 +3,8 @@ import type {
   TenantChangePasswordResponse,
   TenantLoginRequest,
   TenantLoginResponse,
+  TenantPasswordResetRequest,
+  TenantPasswordResetResponse,
 } from '@fleet-fuel/shared';
 import type { TenantContext } from '../types/http';
 import { UserRole } from '@prisma/client';
@@ -11,6 +13,9 @@ import { prisma } from '../db/prisma';
 import { AppError } from '../utils/errors';
 import { signAccessToken } from '../utils/jwt';
 import { hashPassword, verifyPassword } from '../utils/password';
+
+const RESET_REQUEST_GENERIC_MESSAGE =
+  'If the account exists and is active, a password reset request has been recorded for tenant support.';
 
 export async function loginTenantStaff(
   tenant: TenantContext,
@@ -196,5 +201,50 @@ export async function changeTenantStaffPassword(
     force_password_change: false,
     full_name: user.fullName,
     username: user.username,
+  };
+}
+
+export async function requestTenantPasswordReset(
+  tenant: TenantContext,
+  payload: TenantPasswordResetRequest,
+): Promise<TenantPasswordResetResponse> {
+  const identifier = payload.identifier.trim().toLowerCase();
+  if (!identifier) {
+    return {
+      accepted: true,
+      message: RESET_REQUEST_GENERIC_MESSAGE,
+    };
+  }
+
+  const user = await prisma.user.findFirst({
+    where: {
+      tenantId: tenant.id,
+      isActive: true,
+      OR: [{ email: identifier }, { username: identifier }],
+    },
+    select: {
+      id: true,
+      role: true,
+      username: true,
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      tenantId: tenant.id,
+      actorId: user?.id ?? null,
+      actorType: user ? 'STAFF' : 'SYSTEM',
+      eventType: 'PASSWORD_RESET_REQUESTED',
+      metadata: {
+        identifier,
+        resolved_user_id: user?.id ?? null,
+        resolved_role: user?.role ?? null,
+      },
+    },
+  });
+
+  return {
+    accepted: true,
+    message: RESET_REQUEST_GENERIC_MESSAGE,
   };
 }

@@ -73,6 +73,37 @@ export async function tenantLogin(tenantHost: string, payload: TenantLoginReques
   return parseJson<TenantLoginResponse>(response);
 }
 
+export async function tenantChangePassword(
+  tenantHost: string,
+  accessToken: string,
+  payload: { current_password: string; new_password: string },
+) {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/auth/change-password`, tenantHost), {
+    method: 'POST',
+    headers: {
+      ...tenantHeaders(tenantHost, accessToken),
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseJson<TenantLoginResponse>(response);
+}
+
+export async function tenantRequestPasswordReset(
+  tenantHost: string,
+  payload: { identifier: string },
+) {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/auth/reset-request`, tenantHost), {
+    method: 'POST',
+    headers: {
+      ...tenantHeaders(tenantHost),
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseJson<{ accepted: true; message: string }>(response);
+}
+
 export async function fetchTenantedHealth(host: string | null | undefined, token?: string) {
   const tenantHost = resolveTenantHost(host);
 

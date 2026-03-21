@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { ApiClientError, tenantLogin } from '../lib/api';
-import { driverTokenKey } from '../lib/session';
+import { ApiClientError, tenantLogin, tenantRequestPasswordReset } from '../lib/api';
+import { driverTokenKey, isForcePasswordChangeToken } from '../lib/session';
 
 interface DriverLoginProps {
   host: string | null;
@@ -17,6 +17,8 @@ export function DriverLogin({ host, subdomain }: DriverLoginProps) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetIdentifier, setResetIdentifier] = useState('');
+  const [resetStatus, setResetStatus] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -26,7 +28,11 @@ export function DriverLogin({ host, subdomain }: DriverLoginProps) {
     }
     const existing = window.localStorage.getItem(driverTokenKey(subdomain));
     if (existing) {
-      router.replace('/dashboard');
+      if (isForcePasswordChangeToken(existing)) {
+        router.replace('/change-password');
+      } else {
+        router.replace('/dashboard');
+      }
     }
   }, [router, subdomain]);
 
@@ -51,7 +57,11 @@ export function DriverLogin({ host, subdomain }: DriverLoginProps) {
       }
 
       window.localStorage.setItem(driverTokenKey(subdomain), login.access_token);
-      router.replace('/dashboard');
+      if (login.force_password_change) {
+        router.replace('/change-password');
+      } else {
+        router.replace('/dashboard');
+      }
     } catch (caught) {
       if (caught instanceof ApiClientError) {
         setError(`${caught.message}${caught.requestId ? ` (request_id: ${caught.requestId})` : ''}`);
@@ -59,6 +69,21 @@ export function DriverLogin({ host, subdomain }: DriverLoginProps) {
         setError(caught instanceof Error ? caught.message : 'Driver login failed.');
       }
       setLoading(false);
+    }
+  }
+
+  async function onResetRequest(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!host) {
+      return;
+    }
+    setResetStatus(null);
+    try {
+      const response = await tenantRequestPasswordReset(host, { identifier: resetIdentifier.trim() });
+      setResetStatus(response.message);
+      setResetIdentifier('');
+    } catch (caught) {
+      setResetStatus(caught instanceof Error ? caught.message : 'Unable to request password reset.');
     }
   }
 
@@ -97,6 +122,25 @@ export function DriverLogin({ host, subdomain }: DriverLoginProps) {
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
           {error ? <p className="status error">{error}</p> : null}
+        </form>
+        <form className="stack" onSubmit={onResetRequest}>
+          <label className="field">
+            <span>Need password reset?</span>
+            <input
+              autoCapitalize="none"
+              autoCorrect="off"
+              inputMode="text"
+              onChange={(event) => setResetIdentifier(event.target.value)}
+              placeholder="driver username"
+              required
+              type="text"
+              value={resetIdentifier}
+            />
+          </label>
+          <button className="button ghost" type="submit">
+            Request password reset
+          </button>
+          {resetStatus ? <p className="status">{resetStatus}</p> : null}
         </form>
       </section>
     </main>

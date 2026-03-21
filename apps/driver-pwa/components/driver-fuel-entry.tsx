@@ -15,7 +15,7 @@ import {
   getPreviousOdometerKm,
   validateOdometerAgainstPrevious,
 } from '../lib/odometer-workflow';
-import { driverTokenKey } from '../lib/session';
+import { driverTokenKey, isForcePasswordChangeToken } from '../lib/session';
 import { DriverShell } from './driver-shell';
 
 interface DriverFuelEntryProps {
@@ -101,6 +101,10 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
       router.replace('/');
       return;
     }
+    if (isForcePasswordChangeToken(token)) {
+      router.replace('/change-password');
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -173,6 +177,10 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
       router.replace('/');
       return;
     }
+    if (isForcePasswordChangeToken(token)) {
+      router.replace('/change-password');
+      return;
+    }
 
     setUploading(true);
     setError(null);
@@ -199,6 +207,10 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
     const token = window.localStorage.getItem(driverTokenKey(subdomain));
     if (!token) {
       router.replace('/');
+      return;
+    }
+    if (isForcePasswordChangeToken(token)) {
+      router.replace('/change-password');
       return;
     }
 

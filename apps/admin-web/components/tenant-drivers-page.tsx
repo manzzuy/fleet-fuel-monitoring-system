@@ -16,6 +16,7 @@ import {
   listMasterDrivers,
   listTenantSites,
   listTenantVehicles,
+  resetMasterDriverPassword,
   updateMasterDriver,
 } from '../lib/api';
 import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
@@ -72,6 +73,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     is_active: true,
   });
   const [driverMessage, setDriverMessage] = useState<string | null>(null);
+  const [resetCredential, setResetCredential] = useState<{ username: string | null; temporaryPassword: string } | null>(null);
   const [driverSaving, setDriverSaving] = useState(false);
   const [role, setRole] = useState<TenantStaffRole | null>(null);
   const canManageMasterData = canManageMasterDataRole(role);
@@ -79,6 +81,11 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     role === 'TRANSPORT_MANAGER'
       ? ['DRIVER', 'SITE_SUPERVISOR', 'SAFETY_OFFICER', 'TENANT_ADMIN']
       : ['DRIVER', 'SITE_SUPERVISOR', 'SAFETY_OFFICER'];
+
+  const canManageRow = (row: DriverLookupRecord) =>
+    canManageMasterData &&
+    row.role !== 'TRANSPORT_MANAGER' &&
+    !(row.role === 'TENANT_ADMIN' && role !== 'TRANSPORT_MANAGER');
 
   async function refreshDriverData(currentSearch: string) {
     if (!host || !subdomain) {
@@ -230,6 +237,32 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
       await refreshDriverData(search);
     } catch (caught) {
       setDriverMessage(caught instanceof ApiClientError ? caught.message : 'Unable to save driver.');
+    } finally {
+      setDriverSaving(false);
+    }
+  }
+
+  async function handleResetPassword(row: DriverLookupRecord) {
+    if (!canManageRow(row) || !host || !subdomain) {
+      return;
+    }
+    const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
+    if (!token) {
+      router.replace('/');
+      return;
+    }
+    setDriverSaving(true);
+    setDriverMessage(null);
+    setResetCredential(null);
+    try {
+      const response = await resetMasterDriverPassword(host, token, row.id);
+      setResetCredential({
+        username: response.username,
+        temporaryPassword: response.temporary_password,
+      });
+      setDriverMessage('Temporary password generated. Share securely and require immediate password change.');
+    } catch (caught) {
+      setDriverMessage(caught instanceof ApiClientError ? caught.message : 'Unable to reset password.');
     } finally {
       setDriverSaving(false);
     }
@@ -531,30 +564,39 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                     </span>
                   </span>
                   <span className="edit-action-cell">
-                    {canManageMasterData &&
-                    row.role !== 'TRANSPORT_MANAGER' &&
-                    !(row.role === 'TENANT_ADMIN' && role !== 'TRANSPORT_MANAGER') ? (
-                      <button
-                        aria-label={`Edit ${row.full_name}`}
-                        className="button button-secondary edit-icon-button"
-                        title="Edit driver"
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          startEdit(row);
-                        }}
-                      >
-                        ✎
-                      </button>
+                    {canManageRow(row) ? (
+                      <div className="inline-actions">
+                        <button
+                          aria-label={`Edit ${row.full_name}`}
+                          className="button button-secondary edit-icon-button"
+                          title="Edit driver"
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            startEdit(row);
+                          }}
+                        >
+                          ✎
+                        </button>
+                        <button
+                          aria-label={`Reset password for ${row.full_name}`}
+                          className="button button-secondary edit-icon-button"
+                          title="Reset password"
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleResetPassword(row);
+                          }}
+                        >
+                          🔐
+                        </button>
+                      </div>
                     ) : (
                       '—'
                     )}
                   </span>
                 </div>
-                {canManageMasterData &&
-                row.role !== 'TRANSPORT_MANAGER' &&
-                !(row.role === 'TENANT_ADMIN' && role !== 'TRANSPORT_MANAGER') &&
-                editingId === row.id ? (
+                {canManageRow(row) && editingId === row.id ? (
                   <div className="table-row master-edit-row" data-testid="drivers-edit-form">
                     <div className="inline-grid four master-form-grid">
                       <label className="field">
@@ -746,6 +788,12 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
           </div>
         ) : null}
         {driverMessage ? <p className={driverMessage.includes('Unable') ? 'status error' : 'status'}>{driverMessage}</p> : null}
+        {resetCredential ? (
+          <div className="status">
+            <strong>Temporary credential:</strong>{' '}
+            {resetCredential.username ?? 'user'} / <code>{resetCredential.temporaryPassword}</code>
+          </div>
+        ) : null}
       </section>
       {profileDriver ? (
         <aside className="profile-drawer" data-testid="user-profile-drawer">

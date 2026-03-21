@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { tenantLogin } from '../lib/api';
+import { tenantLogin, tenantRequestPasswordReset } from '../lib/api';
 import {
   getTenantTokenKey,
   isForcePasswordChangeToken,
@@ -20,6 +20,9 @@ export function TenantLoginPanel({ host, subdomain }: TenantLoginPanelProps) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [resetIdentifier, setResetIdentifier] = useState('');
+  const [resetStatus, setResetStatus] = useState<string | null>(null);
+  const [resetBusy, setResetBusy] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -61,6 +64,22 @@ export function TenantLoginPanel({ host, subdomain }: TenantLoginPanelProps) {
     }
   }
 
+  async function handleResetRequest(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setResetStatus(null);
+    setError(null);
+    setResetBusy(true);
+    try {
+      const response = await tenantRequestPasswordReset(host, { identifier: resetIdentifier.trim() });
+      setResetStatus(response.message);
+      setResetIdentifier('');
+    } catch (caught) {
+      setResetStatus(caught instanceof Error ? caught.message : 'Unable to submit password reset request.');
+    } finally {
+      setResetBusy(false);
+    }
+  }
+
   return (
     <>
       <section className="hero">
@@ -95,6 +114,26 @@ export function TenantLoginPanel({ host, subdomain }: TenantLoginPanelProps) {
             Sign in
           </button>
           {error ? <p className="status error">{error}</p> : null}
+        </form>
+        <form className="stack" onSubmit={handleResetRequest}>
+          <label className="field">
+            <span>Need password reset?</span>
+            <input
+              type="text"
+              name="reset_identifier"
+              value={resetIdentifier}
+              onChange={(event) => setResetIdentifier(event.target.value)}
+              placeholder="Email or username"
+              required
+            />
+          </label>
+          <button className="button button-secondary" disabled={resetBusy} type="submit">
+            {resetBusy ? 'Submitting…' : 'Request password reset'}
+          </button>
+          <p className="status">
+            Password reset requests are routed to your tenant management team and audited.
+          </p>
+          {resetStatus ? <p className="status">{resetStatus}</p> : null}
         </form>
       </section>
     </>

@@ -109,6 +109,15 @@ export const tenantChangePasswordRequestSchema = z.object({
   new_password: passwordSchema,
 });
 
+export const tenantPasswordResetRequestSchema = z.object({
+  identifier: z.string().trim().min(1),
+});
+
+export const tenantPasswordResetResponseSchema = z.object({
+  accepted: z.literal(true),
+  message: z.string(),
+});
+
 export const tenantChangePasswordResponseSchema = z.object({
   access_token: z.string(),
   token_type: z.literal('Bearer'),

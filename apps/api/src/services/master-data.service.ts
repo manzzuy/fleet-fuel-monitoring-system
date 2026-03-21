@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import { Prisma, UserRole } from '@prisma/client';
 
@@ -25,6 +25,11 @@ function canAssignRole(actorRole: AuthContext['role'], targetRole: UserRole) {
     return targetRole === UserRole.DRIVER || targetRole === UserRole.SITE_SUPERVISOR || targetRole === UserRole.SAFETY_OFFICER;
   }
   return false;
+}
+
+function generateTemporaryPassword() {
+  const suffix = randomBytes(9).toString('base64url');
+  return `Tmp${suffix}9aA`;
 }
 
 export function ensureCanManageMasterData(auth: AuthContext, scope: DataScopeContext) {
@@ -711,6 +716,129 @@ export async function updateMasterDriver(input: {
       is_active: updated.isActive,
     },
   });
+}
+
+export async function resetMasterDriverPassword(input: {
+  tenantId: string;
+  actorId: string;
+  actorRole: AuthContext['role'];
+  scope: DataScopeContext;
+  id: string;
+  route: string;
+}) {
+  if (!canManageMasterData(input.actorRole)) {
+    throw new AppError(403, 'forbidden_master_data_write', 'Your role cannot reset user credentials.');
+  }
+
+  if (!input.scope.isFullTenantScope) {
+    throw new AppError(403, 'forbidden_master_data_write', 'Site-scoped users cannot reset user credentials.');
+  }
+
+  const existing = await prisma.user.findFirst({
+    where: {
+      id: input.id,
+      tenantId: input.tenantId,
+      role: {
+        in: [UserRole.DRIVER, UserRole.SITE_SUPERVISOR, UserRole.SAFETY_OFFICER, UserRole.TENANT_ADMIN],
+      },
+    },
+    select: {
+      id: true,
+      role: true,
+      username: true,
+      employeeNo: true,
+      siteAssignments: { select: { siteId: true } },
+      siteAccesses: { select: { siteId: true } },
+    },
+  });
+  if (!existing) {
+    throw new AppError(404, 'driver_not_found', 'User not found.');
+  }
+
+  if (!canAssignRole(input.actorRole, existing.role)) {
+    throw new AppError(403, 'forbidden_role_assignment', 'Your role cannot reset this user.');
+  }
+
+  const inScope =
+    existing.siteAssignments.some((assignment) => input.scope.allowedSiteIds.includes(assignment.siteId)) ||
+    existing.siteAccesses.some((assignment) => input.scope.allowedSiteIds.includes(assignment.siteId));
+  if (!input.scope.isFullTenantScope && !inScope) {
+    await recordOutOfScopeAuditLog({
+      tenantId: input.tenantId,
+      actorId: input.actorId,
+      route: input.route,
+      resourceType: 'driver',
+      resourceId: input.id,
+    });
+    throw new AppError(404, 'driver_not_found', 'User not found.');
+  }
+
+  const temporaryPassword = generateTemporaryPassword();
+  const passwordHash = await hashPassword(temporaryPassword);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: {
+        id: existing.id,
+      },
+      data: {
+        passwordHash,
+      },
+    });
+
+    await tx.userAuth.upsert({
+      where: { userId: existing.id },
+      update: {
+        passwordHash,
+        forcePasswordChange: true,
+      },
+      create: {
+        userId: existing.id,
+        passwordHash,
+        forcePasswordChange: true,
+      },
+    });
+
+    const projection = await tx.driver.findFirst({
+      where: {
+        tenantId: input.tenantId,
+        OR: [
+          ...(existing.username ? [{ username: existing.username }] : []),
+          ...(existing.employeeNo ? [{ employeeNumber: existing.employeeNo }] : []),
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (projection) {
+      await tx.driver.update({
+        where: { id: projection.id },
+        data: { passwordHash },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        tenantId: input.tenantId,
+        actorId: input.actorId,
+        actorType: 'STAFF',
+        eventType: 'MASTER_USER_PASSWORD_RESET',
+        metadata: {
+          user_id: existing.id,
+          role: existing.role,
+          force_password_change: true,
+        },
+      },
+    });
+  });
+
+  return {
+    user_id: existing.id,
+    username: existing.username,
+    role: existing.role,
+    force_password_change: true as const,
+    temporary_password: temporaryPassword,
+  };
 }
 
 export async function listMasterVehicles(tenantId: string, scope: DataScopeContext, search?: string, limit = 100) {

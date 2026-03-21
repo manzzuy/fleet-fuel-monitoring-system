@@ -563,6 +563,19 @@ export async function resetSupportTenantUserAccount(input: {
       data: { passwordHash },
     });
 
+    await tx.userAuth.upsert({
+      where: { userId: user.id },
+      update: {
+        passwordHash,
+        forcePasswordChange: true,
+      },
+      create: {
+        userId: user.id,
+        passwordHash,
+        forcePasswordChange: true,
+      },
+    });
+
     const projection = await tx.driver.findFirst({
       where: {
         tenantId: input.tenantId,
@@ -590,6 +603,7 @@ export async function resetSupportTenantUserAccount(input: {
         metadata: {
           user_id: user.id,
           password_reset: true,
+          force_password_change: true,
         },
       },
     });

@@ -186,6 +186,31 @@ export interface TenantChangePasswordResponse {
   username?: string | null;
 }
 
+export interface TenantPasswordResetRequest {
+  identifier: string;
+}
+
+export interface TenantPasswordResetResponse {
+  accepted: true;
+  message: string;
+}
+
+export interface TenantUserPasswordResetResponse {
+  user_id: string;
+  username: string | null;
+  role:
+    | 'TENANT_ADMIN'
+    | 'COMPANY_ADMIN'
+    | 'SUPERVISOR'
+    | 'SITE_SUPERVISOR'
+    | 'SAFETY_OFFICER'
+    | 'TRANSPORT_MANAGER'
+    | 'HEAD_OFFICE_ADMIN'
+    | 'DRIVER';
+  force_password_change: true;
+  temporary_password: string;
+}
+
 export type ScopeStatus = 'full_tenant_scope' | 'site_scope_limited' | 'no_site_scope_assigned';
 
 export interface DashboardKpis {

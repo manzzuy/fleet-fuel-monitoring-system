@@ -595,6 +595,11 @@ dd {
   justify-content: center;
 }
 
+.inline-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
 .edit-icon-button {
   min-width: 38px;
   min-height: 38px;

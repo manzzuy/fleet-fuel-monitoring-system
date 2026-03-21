@@ -123,6 +123,31 @@ export interface TenantChangePasswordResponse {
   force_password_change: false;
 }
 
+export interface TenantPasswordResetRequest {
+  identifier: string;
+}
+
+export interface TenantPasswordResetResponse {
+  accepted: true;
+  message: string;
+}
+
+export interface TenantUserPasswordResetResponse {
+  user_id: string;
+  username: string | null;
+  role:
+    | 'TENANT_ADMIN'
+    | 'COMPANY_ADMIN'
+    | 'SUPERVISOR'
+    | 'SITE_SUPERVISOR'
+    | 'SAFETY_OFFICER'
+    | 'TRANSPORT_MANAGER'
+    | 'HEAD_OFFICE_ADMIN'
+    | 'DRIVER';
+  force_password_change: true;
+  temporary_password: string;
+}
+
 async function parseJson<T>(response: Response): Promise<T> {
   const payload = (await response.json().catch(() => null)) as (ErrorResponse & Record<string, unknown>) | null;
 
@@ -193,6 +218,22 @@ export async function tenantChangePassword(
   });
 
   return parseJson<TenantChangePasswordResponse>(response);
+}
+
+export async function tenantRequestPasswordReset(
+  tenantHost: string,
+  payload: TenantPasswordResetRequest,
+): Promise<TenantPasswordResetResponse> {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/auth/reset-request`, tenantHost), {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-forwarded-host': tenantHost,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJson<TenantPasswordResetResponse>(response);
 }
 
 export async function listTenants(accessToken: string): Promise<{ items: PlatformTenantRecord[] }> {
@@ -724,6 +765,21 @@ export async function updateMasterDriver(
     body: JSON.stringify(payload),
   });
   return parseJson<{ ok: true; request_id: string }>(response);
+}
+
+export async function resetMasterDriverPassword(
+  tenantHost: string,
+  accessToken: string,
+  driverId: string,
+): Promise<TenantUserPasswordResetResponse> {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/master-data/drivers/${driverId}/reset-password`, tenantHost), {
+    method: 'POST',
+    headers: {
+      'x-forwarded-host': tenantHost,
+      authorization: `Bearer ${accessToken}`,
+    },
+  });
+  return parseJson<TenantUserPasswordResetResponse>(response);
 }
 
 export async function listComplianceTypes(
