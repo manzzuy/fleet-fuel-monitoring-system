@@ -22,7 +22,7 @@ import {
   listTenantVehicles,
 } from '../lib/api';
 import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
-import { getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
+import { buildTenantLoginPath, getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
@@ -54,6 +54,17 @@ export function TenantFuelPage({ host, subdomain }: TenantFuelPageProps) {
   const [missingReceiptOnly, setMissingReceiptOnly] = useState(false);
   const [fallbackUsed, setFallbackUsed] = useState<'ALL' | 'true' | 'false'>('ALL');
   const [relatedRecordId, setRelatedRecordId] = useState('');
+
+  function optionalSites(
+    promise: Promise<{ items: SiteLookupRecord[] }>,
+  ): Promise<{ items: SiteLookupRecord[] }> {
+    return promise.catch((error) => {
+      if (error instanceof ApiClientError && error.code?.startsWith('forbidden_')) {
+        return { items: [] };
+      }
+      throw error;
+    });
+  }
 
   useEffect(() => {
     const vehicle = searchParams.get('vehicle_id') ?? '';
@@ -98,7 +109,7 @@ export function TenantFuelPage({ host, subdomain }: TenantFuelPageProps) {
       }),
       listTenantVehicles(currentHost, accessToken, { limit: '100' }),
       listTenantDrivers(currentHost, accessToken, { limit: '100' }),
-      listTenantSites(currentHost, accessToken, { limit: '100' }),
+      optionalSites(listTenantSites(currentHost, accessToken, { limit: '100' })),
       getTenantDashboardAlerts(currentHost, accessToken, {
         date: activeDate,
       }),
@@ -188,7 +199,7 @@ export function TenantFuelPage({ host, subdomain }: TenantFuelPageProps) {
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
     setRole(null);
-    router.replace('/');
+    router.replace(buildTenantLoginPath(subdomain));
   }
 
   return (

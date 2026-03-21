@@ -9,7 +9,7 @@ import type { ScopeStatus } from '@fleet-fuel/shared';
 import { ApiClientError, createMasterTank, listTenantSites, listTenantTanks, updateMasterTank } from '../lib/api';
 import { formatSiteDisplayName } from '../lib/display-format';
 import { isSafetyOfficerRole, isSiteSupervisorRole } from '../lib/roles';
-import { getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
+import { buildTenantLoginPath, getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
@@ -170,7 +170,7 @@ export function TenantTanksPage({ host, subdomain }: TenantTanksPageProps) {
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
     setRole(null);
-    router.replace('/');
+    router.replace(buildTenantLoginPath(subdomain));
   }
 
   return (

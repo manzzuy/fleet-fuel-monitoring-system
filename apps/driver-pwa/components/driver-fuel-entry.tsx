@@ -15,7 +15,7 @@ import {
   getPreviousOdometerKm,
   validateOdometerAgainstPrevious,
 } from '../lib/odometer-workflow';
-import { driverTokenKey, isForcePasswordChangeToken } from '../lib/session';
+import { buildDriverTenantLoginPath, driverTokenKey, isForcePasswordChangeToken } from '../lib/session';
 import { DriverShell } from './driver-shell';
 
 interface DriverFuelEntryProps {
@@ -164,7 +164,7 @@ export function DriverFuelEntry({ host, subdomain }: DriverFuelEntryProps) {
     if (subdomain) {
       window.localStorage.removeItem(driverTokenKey(subdomain));
     }
-    router.replace('/');
+    router.replace(buildDriverTenantLoginPath(subdomain));
   }
 
   async function onUploadReceipt(file: File) {

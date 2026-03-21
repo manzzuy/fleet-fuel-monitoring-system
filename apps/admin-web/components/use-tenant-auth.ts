@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { getTenantTokenKey } from '../lib/tenant-session';
+import { buildTenantLoginPath, getTenantTokenKey } from '../lib/tenant-session';
 
 interface UseTenantAuthResult {
   token: string | null;
@@ -37,7 +37,7 @@ export function useTenantAuth(subdomain: string | null, redirectPath = '/'): Use
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
     setToken(null);
-    router.replace('/');
+    router.replace(buildTenantLoginPath(subdomain));
   }
 
   return { token, loading, logout };

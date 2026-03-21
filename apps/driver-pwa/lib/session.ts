@@ -18,3 +18,10 @@ export function isForcePasswordChangeToken(token: string) {
   const payload = decodeJwtPayload(token);
   return payload?.force_password_change === true;
 }
+
+export function buildDriverTenantLoginPath(subdomain: string | null | undefined) {
+  if (!subdomain) {
+    return '/';
+  }
+  return `/?tenant=${encodeURIComponent(subdomain)}`;
+}

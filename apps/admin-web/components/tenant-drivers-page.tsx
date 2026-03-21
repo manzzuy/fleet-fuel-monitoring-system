@@ -21,7 +21,7 @@ import {
 } from '../lib/api';
 import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
 import { canManageMasterDataRole } from '../lib/roles';
-import { getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
+import { buildTenantLoginPath, getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
@@ -302,7 +302,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
     setRole(null);
-    router.replace('/');
+    router.replace(buildTenantLoginPath(subdomain));
   }
 
   function resetComplianceForm() {

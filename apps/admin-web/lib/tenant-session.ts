@@ -97,3 +97,10 @@ export function getTenantDisplayName(subdomain: string): string | null {
   const identity = getTenantIdentityFromToken(token);
   return identity.fullName ?? identity.username ?? null;
 }
+
+export function buildTenantLoginPath(subdomain: string | null | undefined): string {
+  if (!subdomain) {
+    return '/';
+  }
+  return `/?tenant=${encodeURIComponent(subdomain)}`;
+}

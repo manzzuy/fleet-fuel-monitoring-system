@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import type { ChecklistMasterResponse, DailyCheckDetailsResponse } from '@fleet-fuel/shared';
 
 import { ApiClientError, getChecklistMaster, getDailyCheck } from '../lib/api';
-import { getTenantTokenKey } from '../lib/tenant-session';
+import { buildTenantLoginPath, getTenantTokenKey } from '../lib/tenant-session';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 import { buildPaperChecklistModel, PaperChecklistRenderer, type PaperUiStatus } from '../../../packages/shared/ui/paper-checklist-renderer';
 
@@ -103,7 +103,7 @@ export function TenantDailyCheckDetailsPage({
     if (subdomain) {
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
-    router.replace('/');
+    router.replace(buildTenantLoginPath(subdomain));
   }
 
   const filteredDailyChecksLink = `/daily-checks?${new URLSearchParams({

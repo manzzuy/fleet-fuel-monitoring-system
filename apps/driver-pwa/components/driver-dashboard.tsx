@@ -7,7 +7,7 @@ import Link from 'next/link';
 import type { DriverDashboardResponse } from '@fleet-fuel/shared';
 
 import { ApiClientError, getDriverDashboard } from '../lib/api';
-import { driverTokenKey, isForcePasswordChangeToken } from '../lib/session';
+import { buildDriverTenantLoginPath, driverTokenKey, isForcePasswordChangeToken } from '../lib/session';
 import { DriverShell } from './driver-shell';
 
 interface DriverDashboardProps {
@@ -55,7 +55,7 @@ export function DriverDashboard({ host, subdomain }: DriverDashboardProps) {
     if (subdomain) {
       window.localStorage.removeItem(driverTokenKey(subdomain));
     }
-    router.replace('/');
+    router.replace(buildDriverTenantLoginPath(subdomain));
   }
 
   return (

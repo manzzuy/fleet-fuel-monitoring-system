@@ -10,7 +10,7 @@ import type { ScopeStatus } from '@fleet-fuel/shared';
 
 import { ApiClientError, listDailyChecks, listTenantDrivers, listTenantSites, listTenantVehicles } from '../lib/api';
 import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
-import { getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
+import { buildTenantLoginPath, getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
@@ -56,6 +56,17 @@ export function TenantDailyChecksPage({ host, subdomain }: TenantDailyChecksPage
   const [error, setError] = useState<string | null>(null);
   const [scopeStatus, setScopeStatus] = useState<ScopeStatus>('full_tenant_scope');
   const [role, setRole] = useState<TenantStaffRole | null>(null);
+
+  function optionalSites(
+    promise: Promise<{ items: SiteLookupRecord[] }>,
+  ): Promise<{ items: SiteLookupRecord[] }> {
+    return promise.catch((error) => {
+      if (error instanceof ApiClientError && error.code?.startsWith('forbidden_')) {
+        return { items: [] };
+      }
+      throw error;
+    });
+  }
 
   useEffect(() => {
     const dateParam = searchParams.get('date') ?? '';
@@ -105,7 +116,7 @@ export function TenantDailyChecksPage({ host, subdomain }: TenantDailyChecksPage
       }),
       listTenantVehicles(currentHost, accessToken, { limit: '100' }),
       listTenantDrivers(currentHost, accessToken, { limit: '100' }),
-      listTenantSites(currentHost, accessToken, { limit: '100' }),
+      optionalSites(listTenantSites(currentHost, accessToken, { limit: '100' })),
     ]);
 
     setChecks(checksResult.items);
@@ -171,7 +182,7 @@ export function TenantDailyChecksPage({ host, subdomain }: TenantDailyChecksPage
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
     setRole(null);
-    router.replace('/');
+    router.replace(buildTenantLoginPath(subdomain));
   }
 
   return (

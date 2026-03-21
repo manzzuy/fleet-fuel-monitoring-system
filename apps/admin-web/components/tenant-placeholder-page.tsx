@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { getTenantTokenKey } from '../lib/tenant-session';
+import { buildTenantLoginPath, getTenantTokenKey } from '../lib/tenant-session';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
 interface TenantPlaceholderPageProps {
@@ -32,7 +32,7 @@ export function TenantPlaceholderPage({ host, subdomain, title, description }: T
     if (subdomain) {
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
-    router.replace('/');
+    router.replace(buildTenantLoginPath(subdomain));
   }
 
   return (

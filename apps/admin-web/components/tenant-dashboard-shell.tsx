@@ -8,7 +8,7 @@ import type { ScopeStatus, TenantDashboardSummaryResponse } from '@fleet-fuel/sh
 
 import { ApiClientError, getTenantDashboardSummary } from '../lib/api';
 import { formatFleetCode } from '../lib/display-format';
-import { getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
+import { buildTenantLoginPath, getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
@@ -110,7 +110,7 @@ export function TenantDashboardShell({ host, subdomain }: TenantDashboardShellPr
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
     setRole(null);
-    router.replace('/');
+    router.replace(buildTenantLoginPath(subdomain));
   }
 
   function handleRetry() {

@@ -27,7 +27,7 @@ import {
 } from '../lib/api';
 import { formatSiteDisplayName } from '../lib/display-format';
 import { isSafetyOfficerRole, isSiteSupervisorRole } from '../lib/roles';
-import { getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
+import { buildTenantLoginPath, getTenantRoleFromToken, getTenantTokenKey, type TenantStaffRole } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
@@ -266,7 +266,7 @@ export function TenantSettingsPage({ host, subdomain }: TenantSettingsPageProps)
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
     setRole(null);
-    router.replace('/');
+    router.replace(buildTenantLoginPath(subdomain));
   }
 
   async function handleSaveNotifications() {

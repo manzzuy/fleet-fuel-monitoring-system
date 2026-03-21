@@ -20,7 +20,7 @@ import {
   listTenantVehicles,
 } from '../lib/api';
 import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
-import { getTenantTokenKey } from '../lib/tenant-session';
+import { buildTenantLoginPath, getTenantTokenKey } from '../lib/tenant-session';
 import { ScopeEmptyState } from './scope-empty-state';
 import { TenantSidebarLayout } from './tenant-sidebar-layout';
 
@@ -119,7 +119,7 @@ export function TenantAlertsPage({ host, subdomain }: TenantAlertsPageProps) {
     if (subdomain) {
       window.localStorage.removeItem(getTenantTokenKey(subdomain));
     }
-    router.replace('/');
+    router.replace(buildTenantLoginPath(subdomain));
   }
 
   return (
