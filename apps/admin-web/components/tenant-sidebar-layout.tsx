@@ -92,6 +92,13 @@ export function TenantSidebarLayout({
               {item.label}
             </Link>
           ))}
+          <Link
+            href="/change-password"
+            className={pathname === '/change-password' ? 'tenant-nav-item active' : 'tenant-nav-item'}
+            data-testid="nav-change-password"
+          >
+            Change Password
+          </Link>
         </nav>
         <button className="button button-secondary sidebar-signout" onClick={onSignOut} type="button">
           Sign out

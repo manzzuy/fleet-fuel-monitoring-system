@@ -15,11 +15,13 @@ import {
   ApiClientError,
   createNotificationContact,
   fetchTenantedSystemStatus,
+  getTenantProfile,
   getTenantSettings,
   listNotificationContacts,
   listTenantSites,
   removeNotificationContactSiteAssignment,
   previewNotificationRecipients,
+  updateTenantProfile,
   updateNotificationContact,
   updateTenantNotificationSettings,
 } from '../lib/api';
@@ -98,6 +100,10 @@ export function TenantSettingsPage({ host, subdomain }: TenantSettingsPageProps)
   const [systemStatus, setSystemStatus] = useState<TenantedSystemStatusResponse | null>(null);
   const [systemStatusError, setSystemStatusError] = useState<string | null>(null);
   const [role, setRole] = useState<TenantStaffRole | null>(null);
+  const [profile, setProfile] = useState<{ full_name: string; username: string } | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   async function refreshNotificationPreview(
     hostname: string,
@@ -322,6 +328,60 @@ export function TenantSettingsPage({ host, subdomain }: TenantSettingsPageProps)
     }
   }
 
+  async function handleSaveProfile() {
+    if (!host || !subdomain || !profile) {
+      return;
+    }
+    const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
+    if (!token) {
+      router.replace('/');
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileMessage(null);
+    setProfileError(null);
+    try {
+      const updated = await updateTenantProfile(host, token, {
+        full_name: profile.full_name.trim(),
+        username: profile.username.trim(),
+      });
+      setProfile({
+        full_name: updated.item.full_name,
+        username: updated.item.username ?? '',
+      });
+      setProfileMessage('Profile updated.');
+    } catch (caught) {
+      if (caught instanceof ApiClientError) {
+        setProfileError(`${caught.message}${caught.requestId ? ` (request_id: ${caught.requestId})` : ''}`);
+      } else {
+        setProfileError(caught instanceof Error ? caught.message : 'Unable to save profile.');
+      }
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!host || !subdomain) {
+      return;
+    }
+    const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
+    if (!token) {
+      return;
+    }
+    void getTenantProfile(host, token)
+      .then((result) => {
+        setProfile({
+          full_name: result.item.full_name,
+          username: result.item.username ?? '',
+        });
+      })
+      .catch(() => {
+        setProfile(null);
+      });
+  }, [host, subdomain]);
+
   async function refreshContacts(hostname: string, token: string) {
     const result = await listNotificationContacts(hostname, token);
     setContacts(
@@ -441,6 +501,48 @@ export function TenantSettingsPage({ host, subdomain }: TenantSettingsPageProps)
       onSignOut={handleLogout}
     >
       {scopeStatus === 'no_site_scope_assigned' ? <ScopeEmptyState /> : null}
+      <section className="card" data-testid="settings-profile-module">
+        <h2>My Profile</h2>
+        <p className="status">Keep your display identity and account access details up to date.</p>
+        {profile ? (
+          <div className="stack">
+            <label className="field">
+              <span>Full Name</span>
+              <input
+                value={profile.full_name}
+                onChange={(event) =>
+                  setProfile((current) => (current ? { ...current, full_name: event.target.value } : current))
+                }
+              />
+            </label>
+            <label className="field">
+              <span>Username</span>
+              <input
+                value={profile.username}
+                onChange={(event) =>
+                  setProfile((current) =>
+                    current
+                      ? { ...current, username: event.target.value.toLowerCase().replace(/\s+/g, '') }
+                      : current,
+                  )
+                }
+              />
+            </label>
+            <div className="edit-actions">
+              <button className="button" type="button" onClick={() => void handleSaveProfile()} disabled={profileSaving}>
+                {profileSaving ? 'Saving…' : 'Save profile'}
+              </button>
+              <button className="button button-secondary" type="button" onClick={() => router.push('/change-password')}>
+                Change password
+              </button>
+            </div>
+            {profileMessage ? <p className="status">{profileMessage}</p> : null}
+            {profileError ? <p className="status error">{profileError}</p> : null}
+          </div>
+        ) : (
+          <p className="status">Loading profile…</p>
+        )}
+      </section>
       <section className="card" data-testid="settings-monitoring-module">
         <h2>Configuration</h2>
         {loading ? <p className="status">Loading settings...</p> : null}

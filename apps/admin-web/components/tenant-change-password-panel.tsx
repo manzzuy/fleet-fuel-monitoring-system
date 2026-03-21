@@ -23,6 +23,7 @@ export function TenantChangePasswordPanel({ host, subdomain }: TenantChangePassw
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [forcedMode, setForcedMode] = useState(false);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(getTenantTokenKey(subdomain));
@@ -30,13 +31,10 @@ export function TenantChangePasswordPanel({ host, subdomain }: TenantChangePassw
       router.replace('/');
       return;
     }
-    if (!isForcePasswordChangeToken(stored)) {
-      setForcePasswordChangeCookie(subdomain, false);
-      router.replace('/dashboard');
-      return;
-    }
+    const isForced = isForcePasswordChangeToken(stored);
+    setForcedMode(isForced);
     setToken(stored);
-    setForcePasswordChangeCookie(subdomain, true);
+    setForcePasswordChangeCookie(subdomain, isForced);
   }, [router, subdomain]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -69,8 +67,12 @@ export function TenantChangePasswordPanel({ host, subdomain }: TenantChangePassw
 
   return (
     <section className="card" data-testid="tenant-change-password-card">
-      <h2>Password Update Required</h2>
-      <p>Your account must set a new password before accessing tenant operations.</p>
+      <h2>{forcedMode ? 'Password Update Required' : 'Change Password'}</h2>
+      <p>
+        {forcedMode
+          ? 'Your account must set a new password before accessing tenant operations.'
+          : 'Update your account password for tenant operations access.'}
+      </p>
       <form className="stack" data-testid="tenant-change-password-form" onSubmit={handleSubmit}>
         <label className="field">
           <span>Current password</span>

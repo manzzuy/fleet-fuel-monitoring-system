@@ -123,6 +123,22 @@ export interface TenantChangePasswordResponse {
   force_password_change: false;
 }
 
+export interface TenantProfileRecord {
+  id: string;
+  full_name: string;
+  username: string | null;
+  role:
+    | 'TENANT_ADMIN'
+    | 'COMPANY_ADMIN'
+    | 'SUPERVISOR'
+    | 'SITE_SUPERVISOR'
+    | 'SAFETY_OFFICER'
+    | 'TRANSPORT_MANAGER'
+    | 'HEAD_OFFICE_ADMIN'
+    | 'DRIVER';
+  employee_no: string | null;
+}
+
 export interface TenantPasswordResetRequest {
   identifier: string;
 }
@@ -234,6 +250,37 @@ export async function tenantRequestPasswordReset(
   });
 
   return parseJson<TenantPasswordResetResponse>(response);
+}
+
+export async function getTenantProfile(
+  tenantHost: string,
+  accessToken: string,
+): Promise<{ item: TenantProfileRecord; request_id: string }> {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/profile`, tenantHost), {
+    headers: {
+      'x-forwarded-host': tenantHost,
+      authorization: `Bearer ${accessToken}`,
+    },
+    cache: 'no-store',
+  });
+  return parseJson<{ item: TenantProfileRecord; request_id: string }>(response);
+}
+
+export async function updateTenantProfile(
+  tenantHost: string,
+  accessToken: string,
+  payload: { full_name?: string; username?: string },
+): Promise<{ item: TenantProfileRecord; request_id: string }> {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/profile`, tenantHost), {
+    method: 'PATCH',
+    headers: {
+      'x-forwarded-host': tenantHost,
+      authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseJson<{ item: TenantProfileRecord; request_id: string }>(response);
 }
 
 export async function listTenants(accessToken: string): Promise<{ items: PlatformTenantRecord[] }> {

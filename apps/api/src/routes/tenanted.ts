@@ -70,6 +70,7 @@ import {
   getTenantSettings,
   updateTenantNotificationSettings,
 } from '../services/tenant-settings.service';
+import { getTenantProfile, updateTenantProfile } from '../services/tenant-profile.service';
 import {
   createComplianceRecord,
   createComplianceType,
@@ -140,6 +141,10 @@ const createMasterTankSchema = z.object({
   site_id: z.string().uuid(),
 });
 const updateMasterTankSchema = createMasterTankSchema.partial();
+const updateTenantProfileSchema = z.object({
+  full_name: z.string().trim().min(1).optional(),
+  username: operationalUsernameSchema.optional(),
+});
 const notificationPreviewQuerySchema = z.object({
   event_type: z.enum(['COMPLIANCE_EXPIRED', 'COMPLIANCE_EXPIRING_SOON']).default('COMPLIANCE_EXPIRING_SOON'),
   site_id: z.string().uuid().optional(),
@@ -178,6 +183,36 @@ tenantedRouter.get(
   asyncHandler(async (req, res) => {
     const status = await getTenantedSystemStatus(req.requestId);
     res.json(status);
+  }),
+);
+
+tenantedRouter.get(
+  '/profile',
+  ...staffAuth,
+  asyncHandler(async (req, res) => {
+    const profile = await getTenantProfile(req.tenant!.id, req.auth!.sub);
+    res.json({
+      item: profile,
+      request_id: req.requestId,
+    });
+  }),
+);
+
+tenantedRouter.patch(
+  '/profile',
+  ...staffAuth,
+  asyncHandler(async (req, res) => {
+    const payload = updateTenantProfileSchema.parse(req.body);
+    const profile = await updateTenantProfile({
+      tenantId: req.tenant!.id,
+      userId: req.auth!.sub,
+      auth: req.auth!,
+      payload,
+    });
+    res.json({
+      item: profile,
+      request_id: req.requestId,
+    });
   }),
 );
 
