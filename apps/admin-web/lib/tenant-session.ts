@@ -99,8 +99,9 @@ export function getTenantDisplayName(subdomain: string): string | null {
 }
 
 export function buildTenantLoginPath(subdomain: string | null | undefined): string {
-  if (!subdomain) {
+  const normalized = subdomain?.trim();
+  if (!normalized) {
     return '/';
   }
-  return `/?tenant=${encodeURIComponent(subdomain)}`;
+  return `/?tenant=${encodeURIComponent(normalized)}`;
 }
