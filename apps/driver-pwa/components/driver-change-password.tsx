@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { tenantChangePassword } from '../lib/api';
-import { driverTokenKey, isForcePasswordChangeToken } from '../lib/session';
+import { buildDriverTenantLoginPath, driverTokenKey, isForcePasswordChangeToken } from '../lib/session';
 
 interface DriverChangePasswordProps {
   host: string | null;
@@ -22,16 +22,16 @@ export function DriverChangePassword({ host, subdomain }: DriverChangePasswordPr
 
   useEffect(() => {
     if (!subdomain) {
-      router.replace('/');
+      router.replace(buildDriverTenantLoginPath(subdomain));
       return;
     }
     const stored = window.localStorage.getItem(driverTokenKey(subdomain));
     if (!stored) {
-      router.replace('/');
+      router.replace(buildDriverTenantLoginPath(subdomain));
       return;
     }
     if (!isForcePasswordChangeToken(stored)) {
-      router.replace('/dashboard');
+      router.replace(`/dashboard?tenant=${encodeURIComponent(subdomain)}`);
       return;
     }
     setToken(stored);
@@ -54,7 +54,7 @@ export function DriverChangePassword({ host, subdomain }: DriverChangePasswordPr
         new_password: newPassword,
       });
       window.localStorage.setItem(driverTokenKey(subdomain), updated.access_token);
-      router.replace('/dashboard');
+      router.replace(`/dashboard?tenant=${encodeURIComponent(subdomain)}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to update password.');
     } finally {

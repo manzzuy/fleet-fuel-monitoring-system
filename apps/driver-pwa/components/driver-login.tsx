@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ApiClientError, tenantLogin, tenantRequestPasswordReset } from '../lib/api';
-import { driverTokenKey, isForcePasswordChangeToken } from '../lib/session';
+import { buildDriverTenantLoginPath, driverTokenKey, isForcePasswordChangeToken } from '../lib/session';
 
 interface DriverLoginProps {
   host: string | null;
@@ -29,9 +29,9 @@ export function DriverLogin({ host, subdomain }: DriverLoginProps) {
     const existing = window.localStorage.getItem(driverTokenKey(subdomain));
     if (existing) {
       if (isForcePasswordChangeToken(existing)) {
-        router.replace('/change-password');
+        router.replace(`/change-password?tenant=${encodeURIComponent(subdomain)}`);
       } else {
-        router.replace('/dashboard');
+        router.replace(`/dashboard?tenant=${encodeURIComponent(subdomain)}`);
       }
     }
   }, [router, subdomain]);
@@ -58,9 +58,9 @@ export function DriverLogin({ host, subdomain }: DriverLoginProps) {
 
       window.localStorage.setItem(driverTokenKey(subdomain), login.access_token);
       if (login.force_password_change) {
-        router.replace('/change-password');
+        router.replace(`/change-password?tenant=${encodeURIComponent(subdomain)}`);
       } else {
-        router.replace('/dashboard');
+        router.replace(`/dashboard?tenant=${encodeURIComponent(subdomain)}`);
       }
     } catch (caught) {
       if (caught instanceof ApiClientError) {

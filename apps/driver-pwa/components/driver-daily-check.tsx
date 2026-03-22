@@ -454,11 +454,11 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
   async function loadChecklist(activeHost: string, activeSubdomain: string) {
     const token = window.localStorage.getItem(driverTokenKey(activeSubdomain));
     if (!token) {
-      router.replace('/');
+      router.replace(buildDriverTenantLoginPath(activeSubdomain));
       return;
     }
     if (isForcePasswordChangeToken(token)) {
-      router.replace('/change-password');
+      router.replace(`/change-password?tenant=${encodeURIComponent(activeSubdomain)}`);
       return;
     }
 
@@ -546,7 +546,7 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
 
   useEffect(() => {
     if (!host || !subdomain) {
-      router.replace('/');
+      router.replace(buildDriverTenantLoginPath(subdomain));
       return;
     }
 
@@ -778,11 +778,11 @@ export function DriverDailyCheck({ host, subdomain }: DriverDailyCheckProps) {
     }
     const token = window.localStorage.getItem(driverTokenKey(subdomain));
     if (!token) {
-      router.replace('/');
+      router.replace(buildDriverTenantLoginPath(subdomain));
       return;
     }
     if (isForcePasswordChangeToken(token)) {
-      router.replace('/change-password');
+      router.replace(`/change-password?tenant=${encodeURIComponent(subdomain)}`);
       return;
     }
 

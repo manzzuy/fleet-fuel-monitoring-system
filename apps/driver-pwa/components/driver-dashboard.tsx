@@ -23,17 +23,17 @@ export function DriverDashboard({ host, subdomain }: DriverDashboardProps) {
 
   useEffect(() => {
     if (!host || !subdomain) {
-      router.replace('/');
+      router.replace(buildDriverTenantLoginPath(subdomain));
       return;
     }
 
     const token = window.localStorage.getItem(driverTokenKey(subdomain));
     if (!token) {
-      router.replace('/');
+      router.replace(buildDriverTenantLoginPath(subdomain));
       return;
     }
     if (isForcePasswordChangeToken(token)) {
-      router.replace('/change-password');
+      router.replace(`/change-password?tenant=${encodeURIComponent(subdomain)}`);
       return;
     }
 
