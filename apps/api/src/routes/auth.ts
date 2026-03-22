@@ -50,12 +50,23 @@ authRouter.post(
 );
 
 authRouter.post(
+  '/request-password-reset',
+  loginRateLimitMiddleware,
+  tenantMiddleware,
+  asyncHandler(async (req, res) => {
+    const payload = tenantPasswordResetRequestSchema.parse(req.body);
+    const response = await requestTenantPasswordReset(req.tenant!, payload, req.ip);
+    res.status(202).json(response);
+  }),
+);
+
+authRouter.post(
   '/reset-request',
   loginRateLimitMiddleware,
   tenantMiddleware,
   asyncHandler(async (req, res) => {
     const payload = tenantPasswordResetRequestSchema.parse(req.body);
-    const response = await requestTenantPasswordReset(req.tenant!, payload);
+    const response = await requestTenantPasswordReset(req.tenant!, payload, req.ip);
     res.status(202).json(response);
   }),
 );

@@ -18,7 +18,7 @@ import {
   getTenantDashboardAlerts,
   listFuelLogs,
   listTenantDrivers,
-  listTenantSites,
+  listTenantSiteOptions,
   listTenantVehicles,
 } from '../lib/api';
 import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
@@ -54,17 +54,6 @@ export function TenantFuelPage({ host, subdomain }: TenantFuelPageProps) {
   const [missingReceiptOnly, setMissingReceiptOnly] = useState(false);
   const [fallbackUsed, setFallbackUsed] = useState<'ALL' | 'true' | 'false'>('ALL');
   const [relatedRecordId, setRelatedRecordId] = useState('');
-
-  function optionalSites(
-    promise: Promise<{ items: SiteLookupRecord[] }>,
-  ): Promise<{ items: SiteLookupRecord[] }> {
-    return promise.catch((error) => {
-      if (error instanceof ApiClientError && error.code?.startsWith('forbidden_')) {
-        return { items: [] };
-      }
-      throw error;
-    });
-  }
 
   useEffect(() => {
     const vehicle = searchParams.get('vehicle_id') ?? '';
@@ -109,7 +98,7 @@ export function TenantFuelPage({ host, subdomain }: TenantFuelPageProps) {
       }),
       listTenantVehicles(currentHost, accessToken, { limit: '100' }),
       listTenantDrivers(currentHost, accessToken, { limit: '100' }),
-      optionalSites(listTenantSites(currentHost, accessToken, { limit: '100' })),
+      listTenantSiteOptions(currentHost, accessToken, { limit: '100' }),
       getTenantDashboardAlerts(currentHost, accessToken, {
         date: activeDate,
       }),

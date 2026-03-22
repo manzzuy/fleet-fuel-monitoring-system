@@ -586,6 +586,18 @@ dd {
   align-items: end;
 }
 
+.filter-grid .field {
+  gap: 9px;
+}
+
+.filter-grid .field span {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
 [data-testid='dashboard-needs-attention'] .table-row {
   min-width: 0;
 }

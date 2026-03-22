@@ -8,6 +8,12 @@ import { hashPassword } from '../src/utils/password';
 
 describe('Tenant password reset flows', () => {
   const app = createApp();
+  let ipCounter = 10;
+
+  function nextIp() {
+    ipCounter += 1;
+    return `10.0.0.${ipCounter}`;
+  }
 
   async function platformToken() {
     const email = process.env.PLATFORM_OWNER_EMAIL!;
@@ -17,7 +23,10 @@ describe('Tenant password reset flows', () => {
       update: { role: PlatformUserRole.PLATFORM_OWNER, passwordHash: await hashPassword(password) },
       create: { email, role: PlatformUserRole.PLATFORM_OWNER, passwordHash: await hashPassword(password) },
     });
-    const login = await request(app).post('/auth/platform-login').send({ email, password });
+    const login = await request(app)
+      .post('/auth/platform-login')
+      .set('x-forwarded-for', nextIp())
+      .send({ email, password });
     expect(login.status).toBe(200);
     return login.body.access_token as string;
   }
@@ -43,6 +52,7 @@ describe('Tenant password reset flows', () => {
     const tmLogin = await request(app)
       .post('/auth/login')
       .set('host', `${subdomain}.platform.test`)
+      .set('x-forwarded-for', nextIp())
       .send({
         identifier: `${subdomain}tm`,
         password: 'StrongPass123',
@@ -59,7 +69,11 @@ describe('Tenant password reset flows', () => {
   it('accepts password reset requests without leaking account existence', async () => {
     const { tenantId, host } = await createTenantWithManager('resetrequest');
 
-    const response = await request(app).post('/auth/reset-request').set('host', host).send({ identifier: 'unknown-user' });
+    const response = await request(app)
+      .post('/auth/reset-request')
+      .set('host', host)
+      .set('x-forwarded-for', nextIp())
+      .send({ identifier: 'unknown-user' });
     expect(response.status).toBe(202);
     expect(response.body.accepted).toBe(true);
 
@@ -71,6 +85,40 @@ describe('Tenant password reset flows', () => {
       orderBy: { createdAt: 'desc' },
     });
     expect(audit).toBeTruthy();
+
+    const resetRequest = await prisma.passwordResetRequest.findFirst({
+      where: {
+        tenantId,
+        usernameEntered: 'unknown-user',
+      },
+      orderBy: { requestedAt: 'desc' },
+    });
+    expect(resetRequest).toBeTruthy();
+    expect(resetRequest?.status).toBe('PENDING');
+  });
+
+  it('accepts request-password-reset endpoint with the same generic response', async () => {
+    const { tenantId, host } = await createTenantWithManager('resetrequestv2');
+    const response = await request(app)
+      .post('/auth/request-password-reset')
+      .set('host', host)
+      .set('x-forwarded-for', nextIp())
+      .send({ identifier: 'ghost-user' });
+    expect(response.status).toBe(202);
+    expect(response.body).toEqual({
+      accepted: true,
+      message: 'Your request has been submitted for review.',
+    });
+
+    const resetRequest = await prisma.passwordResetRequest.findFirst({
+      where: {
+        tenantId,
+        usernameEntered: 'ghost-user',
+      },
+      orderBy: { requestedAt: 'desc' },
+    });
+    expect(resetRequest).toBeTruthy();
+    expect(resetRequest?.status).toBe('PENDING');
   });
 
   it('allows transport manager to reset user password and enforces force_password_change', async () => {
@@ -116,7 +164,7 @@ describe('Tenant password reset flows', () => {
       },
     });
 
-    const driverLogin = await request(app).post('/auth/login').set('host', host).send({
+    const driverLogin = await request(app).post('/auth/login').set('host', host).set('x-forwarded-for', nextIp()).send({
       identifier: 'resetdriver',
       password: reset.body.temporary_password,
     });
@@ -140,7 +188,7 @@ describe('Tenant password reset flows', () => {
       });
     expect(tenantAdmin.status).toBe(201);
 
-    const adminLogin = await request(app).post('/auth/login').set('host', host).send({
+    const adminLogin = await request(app).post('/auth/login').set('host', host).set('x-forwarded-for', nextIp()).send({
       identifier: 'opsadmin',
       password: tenantAdmin.body.temporary_password ?? '',
     });
@@ -152,7 +200,7 @@ describe('Tenant password reset flows', () => {
         .set('authorization', `Bearer ${tmToken}`)
         .send({});
       expect(bootstrap.status).toBe(200);
-      const relogin = await request(app).post('/auth/login').set('host', host).send({
+      const relogin = await request(app).post('/auth/login').set('host', host).set('x-forwarded-for', nextIp()).send({
         identifier: 'opsadmin',
         password: bootstrap.body.temporary_password,
       });
@@ -174,5 +222,101 @@ describe('Tenant password reset flows', () => {
       .send({});
     expect(blocked.status).toBe(403);
     expect(['password_change_required', 'forbidden_role_assignment']).toContain(blocked.body.error?.code);
+  });
+
+  it('allows transport manager to approve/reject password reset requests with audit trail', async () => {
+    const { tenantId, host, tmToken } = await createTenantWithManager('resetapproval');
+
+    const site = await request(app)
+      .post('/tenanted/master-data/sites')
+      .set('host', host)
+      .set('authorization', `Bearer ${tmToken}`)
+      .send({
+        site_code: 'APR-SITE',
+        site_name: 'Approve Site',
+      });
+    expect(site.status).toBe(201);
+
+    const createdDriver = await request(app)
+      .post('/tenanted/master-data/drivers')
+      .set('host', host)
+      .set('authorization', `Bearer ${tmToken}`)
+      .send({
+        role: 'DRIVER',
+        full_name: 'Approval Driver',
+        employee_no: 'APR-01',
+        username: 'approvaldriver',
+        site_id: site.body.id as string,
+        is_active: true,
+      });
+    expect(createdDriver.status).toBe(201);
+
+    const requestResponse = await request(app)
+      .post('/auth/request-password-reset')
+      .set('host', host)
+      .set('x-forwarded-for', nextIp())
+      .send({ identifier: 'approvaldriver' });
+    expect(requestResponse.status).toBe(202);
+
+    const listResponse = await request(app)
+      .get('/tenanted/password-reset-requests?status=PENDING')
+      .set('host', host)
+      .set('authorization', `Bearer ${tmToken}`);
+    expect(listResponse.status).toBe(200);
+    const pending = (listResponse.body.items as Array<{ id: string; username_entered: string }>).find(
+      (item) => item.username_entered === 'approvaldriver',
+    );
+    expect(pending).toBeTruthy();
+
+    const approveResponse = await request(app)
+      .post(`/tenanted/password-reset-requests/${pending!.id}/approve`)
+      .set('host', host)
+      .set('authorization', `Bearer ${tmToken}`)
+      .send({ notes: 'Pilot support reset' });
+    expect(approveResponse.status).toBe(200);
+    expect(approveResponse.body.force_password_change).toBe(true);
+    expect(typeof approveResponse.body.temporary_password).toBe('string');
+
+    const approvedInDb = await prisma.passwordResetRequest.findUnique({ where: { id: pending!.id } });
+    expect(approvedInDb?.status).toBe('APPROVED');
+
+    const authRecord = await prisma.userAuth.findUnique({
+      where: { userId: createdDriver.body.id as string },
+      select: { forcePasswordChange: true },
+    });
+    expect(authRecord?.forcePasswordChange).toBe(true);
+
+    const rejectSeed = await request(app)
+      .post('/auth/request-password-reset')
+      .set('host', host)
+      .set('x-forwarded-for', nextIp())
+      .send({ identifier: 'approvaldriver' });
+    expect(rejectSeed.status).toBe(202);
+    const pendingAgain = await prisma.passwordResetRequest.findFirst({
+      where: {
+        tenantId,
+        usernameEntered: 'approvaldriver',
+        status: 'PENDING',
+      },
+      orderBy: { requestedAt: 'desc' },
+    });
+    expect(pendingAgain).toBeTruthy();
+
+    const rejectResponse = await request(app)
+      .post(`/tenanted/password-reset-requests/${pendingAgain!.id}/reject`)
+      .set('host', host)
+      .set('authorization', `Bearer ${tmToken}`)
+      .send({ notes: 'Duplicate request' });
+    expect(rejectResponse.status).toBe(200);
+    expect(rejectResponse.body.item.status).toBe('REJECTED');
+
+    const rejectAudit = await prisma.auditLog.findFirst({
+      where: {
+        tenantId,
+        eventType: 'PASSWORD_RESET_REQUEST_REJECTED',
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(rejectAudit).toBeTruthy();
   });
 });

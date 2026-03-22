@@ -16,7 +16,7 @@ import {
   ApiClientError,
   getTenantDashboardAlerts,
   listTenantDrivers,
-  listTenantSites,
+  listTenantSiteOptions,
   listTenantVehicles,
 } from '../lib/api';
 import { formatFleetCode, formatSiteDisplayName } from '../lib/display-format';
@@ -67,7 +67,7 @@ export function TenantAlertsPage({ host, subdomain }: TenantAlertsPageProps) {
       }),
       listTenantVehicles(currentHost, accessToken, { limit: '100' }),
       listTenantDrivers(currentHost, accessToken, { limit: '100' }),
-      listTenantSites(currentHost, accessToken, { limit: '100' }),
+      listTenantSiteOptions(currentHost, accessToken, { limit: '100' }),
     ]);
 
     setResponse(alerts);
@@ -169,7 +169,7 @@ export function TenantAlertsPage({ host, subdomain }: TenantAlertsPageProps) {
           </button>
         </div>
 
-        <div className="inline-grid four">
+        <div className="inline-grid four filter-grid">
           <label className="field">
             <span>Date</span>
             <input
@@ -235,7 +235,7 @@ export function TenantAlertsPage({ host, subdomain }: TenantAlertsPageProps) {
           </label>
         </div>
 
-        <div className="inline-grid three">
+        <div className="inline-grid three filter-grid">
           <label className="field">
             <span>Driver</span>
             <select

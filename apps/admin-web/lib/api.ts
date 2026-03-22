@@ -11,6 +11,8 @@ import type {
   DailyCheckDetailsResponse,
   DailyChecksListResponse,
   DashboardAlertsResponse,
+  PasswordResetRequestsListResponse,
+  ApprovePasswordResetRequestResponse,
   ErrorResponse,
   FuelEntriesListResponse,
   OnboardingBatch,
@@ -240,7 +242,7 @@ export async function tenantRequestPasswordReset(
   tenantHost: string,
   payload: TenantPasswordResetRequest,
 ): Promise<TenantPasswordResetResponse> {
-  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/auth/reset-request`, tenantHost), {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/auth/request-password-reset`, tenantHost), {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -960,6 +962,103 @@ export async function listTenantSites(
   );
 
   return parseJson<{ items: SiteLookupRecord[]; scope_status?: ScopeStatus; request_id: string }>(response);
+}
+
+export async function listTenantSiteOptions(
+  tenantHost: string,
+  accessToken: string,
+  query: Record<string, string | undefined> = {},
+): Promise<{ items: SiteLookupRecord[]; scope_status?: ScopeStatus; request_id: string }> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value) {
+      params.set(key, value);
+    }
+  }
+
+  const response = await fetch(
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/site-options${params.toString() ? `?${params.toString()}` : ''}`, tenantHost),
+    {
+      headers: {
+        'x-forwarded-host': tenantHost,
+        authorization: `Bearer ${accessToken}`,
+      },
+      cache: 'no-store',
+    },
+  );
+
+  return parseJson<{ items: SiteLookupRecord[]; scope_status?: ScopeStatus; request_id: string }>(response);
+}
+
+export async function listPasswordResetRequests(
+  tenantHost: string,
+  accessToken: string,
+  query: Record<string, string | undefined> = {},
+): Promise<PasswordResetRequestsListResponse> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value) {
+      params.set(key, value);
+    }
+  }
+  const response = await fetch(
+    withTenantQuery(
+      `${appConfig.apiBaseUrl}/tenanted/password-reset-requests${params.toString() ? `?${params.toString()}` : ''}`,
+      tenantHost,
+    ),
+    {
+      headers: {
+        'x-forwarded-host': tenantHost,
+        authorization: `Bearer ${accessToken}`,
+      },
+      cache: 'no-store',
+    },
+  );
+  return parseJson<PasswordResetRequestsListResponse>(response);
+}
+
+export async function approvePasswordResetRequest(
+  tenantHost: string,
+  accessToken: string,
+  requestId: string,
+  payload: { notes?: string } = {},
+): Promise<ApprovePasswordResetRequestResponse> {
+  const response = await fetch(
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/password-reset-requests/${requestId}/approve`, tenantHost),
+    {
+      method: 'POST',
+      headers: {
+        'x-forwarded-host': tenantHost,
+        authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+  return parseJson<ApprovePasswordResetRequestResponse>(response);
+}
+
+export async function rejectPasswordResetRequest(
+  tenantHost: string,
+  accessToken: string,
+  requestId: string,
+  payload: { notes: string },
+): Promise<{ item: { id: string; status: 'REJECTED'; notes: string | null; reviewed_at: string | null }; request_id: string }> {
+  const response = await fetch(
+    withTenantQuery(`${appConfig.apiBaseUrl}/tenanted/password-reset-requests/${requestId}/reject`, tenantHost),
+    {
+      method: 'POST',
+      headers: {
+        'x-forwarded-host': tenantHost,
+        authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+  return parseJson<{ item: { id: string; status: 'REJECTED'; notes: string | null; reviewed_at: string | null }; request_id: string }>(
+    response,
+  );
 }
 
 export async function createMasterSite(

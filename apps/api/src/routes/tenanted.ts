@@ -64,6 +64,11 @@ import {
 import {
   getNotificationProviderReadiness,
 } from '../services/notification-dispatch.service';
+import {
+  approvePasswordResetRequest,
+  listPasswordResetRequests,
+  rejectPasswordResetRequest,
+} from '../services/password-reset-requests.service';
 import { getTenantedSystemStatus } from '../services/system-status.service';
 import {
   ensureCanViewNotificationConfiguration,
@@ -148,6 +153,33 @@ const updateTenantProfileSchema = z.object({
 const notificationPreviewQuerySchema = z.object({
   event_type: z.enum(['COMPLIANCE_EXPIRED', 'COMPLIANCE_EXPIRING_SOON']).default('COMPLIANCE_EXPIRING_SOON'),
   site_id: z.string().uuid().optional(),
+});
+const passwordResetRequestsQuerySchema = z.object({
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED', 'COMPLETED']).optional(),
+  role: z
+    .enum([
+      'TENANT_ADMIN',
+      'COMPANY_ADMIN',
+      'SUPERVISOR',
+      'SITE_SUPERVISOR',
+      'SAFETY_OFFICER',
+      'TRANSPORT_MANAGER',
+      'HEAD_OFFICE_ADMIN',
+      'DRIVER',
+    ])
+    .optional(),
+  site_id: z.string().uuid().optional(),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+const passwordResetRequestParamsSchema = z.object({
+  id: z.string().uuid(),
+});
+const passwordResetApproveBodySchema = z.object({
+  notes: z.string().trim().max(500).optional(),
+});
+const passwordResetRejectBodySchema = z.object({
+  notes: z.string().trim().min(1).max(500),
 });
 
 function ensureRestrictedReadOnlyRole(role: string) {
@@ -545,6 +577,27 @@ tenantedRouter.put(
 );
 
 tenantedRouter.get(
+  '/site-options',
+  ...staffAuth,
+  asyncHandler(async (req, res) => {
+    const query = lookupQuerySchema.parse(req.query);
+    const sites = await listTenantSites(req.tenant!.id, req.dataScope!, query.search, query.limit);
+
+    res.json({
+      items: sites.map((site) => ({
+        id: site.id,
+        site_code: site.siteCode,
+        site_name: site.siteName,
+        location: site.location,
+        is_active: site.isActive,
+      })),
+      scope_status: req.dataScope!.scopeStatus,
+      request_id: req.requestId,
+    });
+  }),
+);
+
+tenantedRouter.get(
   '/sites',
   ...staffAuth,
   asyncHandler(async (req, res) => {
@@ -561,6 +614,60 @@ tenantedRouter.get(
         is_active: site.isActive,
       })),
       scope_status: req.dataScope!.scopeStatus,
+      request_id: req.requestId,
+    });
+  }),
+);
+
+tenantedRouter.get(
+  '/password-reset-requests',
+  ...staffAuth,
+  asyncHandler(async (req, res) => {
+    const query = passwordResetRequestsQuerySchema.parse(req.query);
+    const items = await listPasswordResetRequests(req.tenant!.id, req.auth!, req.dataScope!, query);
+    res.json({
+      items,
+      scope_status: req.dataScope!.scopeStatus,
+      request_id: req.requestId,
+    });
+  }),
+);
+
+tenantedRouter.post(
+  '/password-reset-requests/:id/approve',
+  ...staffAuth,
+  asyncHandler(async (req, res) => {
+    const params = passwordResetRequestParamsSchema.parse(req.params);
+    const body = passwordResetApproveBodySchema.parse(req.body);
+    const result = await approvePasswordResetRequest({
+      tenantId: req.tenant!.id,
+      requestId: params.id,
+      reviewer: req.auth!,
+      scope: req.dataScope!,
+      notes: body.notes,
+    });
+    res.json({
+      ...result,
+      request_id: req.requestId,
+    });
+  }),
+);
+
+tenantedRouter.post(
+  '/password-reset-requests/:id/reject',
+  ...staffAuth,
+  asyncHandler(async (req, res) => {
+    const params = passwordResetRequestParamsSchema.parse(req.params);
+    const body = passwordResetRejectBodySchema.parse(req.body);
+    const result = await rejectPasswordResetRequest({
+      tenantId: req.tenant!.id,
+      requestId: params.id,
+      reviewer: req.auth!,
+      scope: req.dataScope!,
+      notes: body.notes,
+    });
+    res.json({
+      item: result,
       request_id: req.requestId,
     });
   }),

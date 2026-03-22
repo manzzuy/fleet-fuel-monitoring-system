@@ -125,7 +125,7 @@ export function DriverLogin({ host, subdomain }: DriverLoginProps) {
         </form>
         <form className="stack" onSubmit={onResetRequest}>
           <label className="field">
-            <span>Need password reset?</span>
+            <span>Forgot Password / Request Password Reset</span>
             <input
               autoCapitalize="none"
               autoCorrect="off"
@@ -138,7 +138,7 @@ export function DriverLogin({ host, subdomain }: DriverLoginProps) {
             />
           </label>
           <button className="button ghost" type="submit">
-            Request password reset
+            Submit reset request
           </button>
           {resetStatus ? <p className="status">{resetStatus}</p> : null}
         </form>

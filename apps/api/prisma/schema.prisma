@@ -93,6 +93,13 @@ enum ComplianceAppliesTo {
   VEHICLE
 }
 
+enum PasswordResetRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
 model PlatformUser {
   id                String                  @id @default(uuid()) @db.Uuid
   email             String                  @unique
@@ -133,6 +140,7 @@ model Tenant {
   contactSiteAssignments  ContactSiteAssignment[]
   complianceTypes         ComplianceType[]
   complianceRecords       ComplianceRecord[]
+  passwordResetRequests   PasswordResetRequest[]
 
   @@map("tenants")
 }
@@ -176,6 +184,8 @@ model User {
   dailyChecksCreated       DailyCheck[]            @relation("DailyCheckCreatedBy")
   complianceRecords        ComplianceRecord[]      @relation("ComplianceRecordDriver")
   complianceRecordsCreated ComplianceRecord[]      @relation("ComplianceRecordCreatedBy")
+  passwordResetRequests    PasswordResetRequest[]  @relation("PasswordResetRequestResolvedUser")
+  passwordResetReviewed    PasswordResetRequest[]  @relation("PasswordResetRequestReviewedBy")
 
   @@unique([tenantId, email])
   @@unique([tenantId, username])
@@ -687,6 +697,29 @@ model ComplianceRecord {
   @@index([expiryDate])
   @@index([tenantId, appliesTo, expiryDate])
   @@map("compliance_records")
+}
+
+model PasswordResetRequest {
+  id              String                     @id @default(uuid()) @db.Uuid
+  tenantId        String                     @map("tenant_id") @db.Uuid
+  usernameEntered String                     @map("username_entered")
+  userId          String?                    @map("user_id") @db.Uuid
+  role            UserRole?
+  status          PasswordResetRequestStatus @default(PENDING)
+  requestedAt     DateTime                   @default(now()) @map("requested_at") @db.Timestamptz(6)
+  requestedByIp   String?                    @map("requested_by_ip")
+  reviewedBy      String?                    @map("reviewed_by") @db.Uuid
+  reviewedAt      DateTime?                  @map("reviewed_at") @db.Timestamptz(6)
+  notes           String?
+  tenant          Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user            User?                      @relation("PasswordResetRequestResolvedUser", fields: [userId], references: [id], onDelete: SetNull)
+  reviewedByUser  User?                      @relation("PasswordResetRequestReviewedBy", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status, requestedAt])
+  @@index([tenantId, usernameEntered])
+  @@index([userId])
+  @@index([reviewedBy])
+  @@map("password_reset_requests")
 }
 
 model ChecklistSectionMaster {

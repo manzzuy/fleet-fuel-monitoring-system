@@ -8,14 +8,17 @@ import type { ScopeStatus } from '@fleet-fuel/shared';
 
 import {
   ApiClientError,
+  approvePasswordResetRequest,
   createMasterDriver,
   createComplianceRecord,
   createComplianceType,
+  listPasswordResetRequests,
   listComplianceRecords,
   listComplianceTypes,
   listMasterDrivers,
-  listTenantSites,
+  listTenantSiteOptions,
   listTenantVehicles,
+  rejectPasswordResetRequest,
   resetMasterDriverPassword,
   updateMasterDriver,
 } from '../lib/api';
@@ -28,17 +31,6 @@ import { TenantSidebarLayout } from './tenant-sidebar-layout';
 interface TenantDriversPageProps {
   host: string | null;
   subdomain: string | null;
-}
-
-function optionalSites(
-  promise: Promise<{ items: Array<{ id: string; site_code: string; site_name: string }> }>,
-) {
-  return promise.catch((error) => {
-    if (error instanceof ApiClientError && error.code?.startsWith('forbidden_')) {
-      return { items: [] };
-    }
-    throw error;
-  });
 }
 
 export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
@@ -74,6 +66,31 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
   });
   const [driverMessage, setDriverMessage] = useState<string | null>(null);
   const [resetCredential, setResetCredential] = useState<{ username: string | null; temporaryPassword: string } | null>(null);
+  const [resetRequests, setResetRequests] = useState<
+    Array<{
+      id: string;
+      username_entered: string;
+      status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+      role: string | null;
+      requested_at: string;
+      requested_by_ip: string | null;
+      reviewed_at: string | null;
+      notes: string | null;
+      resolved_user: {
+        id: string;
+        full_name: string;
+        username: string | null;
+        role: string;
+        site: { id: string; site_code: string; site_name: string } | null;
+      } | null;
+      reviewed_by: { id: string; full_name: string; username: string | null } | null;
+    }>
+  >([]);
+  const [resetRequestsLoading, setResetRequestsLoading] = useState(false);
+  const [resetRequestsStatusFilter, setResetRequestsStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED'>('PENDING');
+  const [resetRequestsRoleFilter, setResetRequestsRoleFilter] = useState<'ALL' | 'DRIVER' | 'SITE_SUPERVISOR' | 'SAFETY_OFFICER' | 'TENANT_ADMIN' | 'TRANSPORT_MANAGER'>('ALL');
+  const [resetReviewNote, setResetReviewNote] = useState('');
+  const [activeResetRequestId, setActiveResetRequestId] = useState<string | null>(null);
   const [driverSaving, setDriverSaving] = useState(false);
   const [role, setRole] = useState<TenantStaffRole | null>(null);
   const canManageMasterData = canManageMasterDataRole(role);
@@ -86,6 +103,23 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     canManageMasterData &&
     row.role !== 'TRANSPORT_MANAGER' &&
     !(row.role === 'TENANT_ADMIN' && role !== 'TRANSPORT_MANAGER');
+
+  async function refreshResetRequests(currentHost: string, token: string) {
+    if (!canManageMasterData) {
+      setResetRequests([]);
+      return;
+    }
+    setResetRequestsLoading(true);
+    try {
+      const result = await listPasswordResetRequests(currentHost, token, {
+        status: resetRequestsStatusFilter === 'ALL' ? undefined : resetRequestsStatusFilter,
+        role: resetRequestsRoleFilter === 'ALL' ? undefined : resetRequestsRoleFilter,
+      });
+      setResetRequests(result.items);
+    } finally {
+      setResetRequestsLoading(false);
+    }
+  }
 
   async function refreshDriverData(currentSearch: string) {
     if (!host || !subdomain) {
@@ -100,7 +134,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     const [driversResult, typesResult, sitesResult, vehiclesResult] = await Promise.all([
       listMasterDrivers(host, token, { limit: '100', search: currentSearch || undefined }),
       listComplianceTypes(host, token, { applies_to: 'DRIVER' }),
-      optionalSites(listTenantSites(host, token, { limit: '100' })),
+      listTenantSiteOptions(host, token, { limit: '100' }),
       listTenantVehicles(host, token, { limit: '100' }),
     ]);
     setRows(driversResult.items);
@@ -108,6 +142,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     setComplianceTypes(typesResult.items.filter((item) => item.is_active));
     setSites(sitesResult.items);
     setVehicles(vehiclesResult.items.map((item) => ({ id: item.id, fleet_no: item.fleet_no, plate_no: item.plate_no })));
+    await refreshResetRequests(host, token);
   }
 
   useEffect(() => {
@@ -128,7 +163,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     void Promise.all([
       listMasterDrivers(host, token, { limit: '100', search: search || undefined }),
       listComplianceTypes(host, token, { applies_to: 'DRIVER' }),
-      optionalSites(listTenantSites(host, token, { limit: '100' })),
+      listTenantSiteOptions(host, token, { limit: '100' }),
       listTenantVehicles(host, token, { limit: '100' }),
     ])
       .then(([driversResult, typesResult, sitesResult, vehiclesResult]) => {
@@ -137,6 +172,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
         setComplianceTypes(typesResult.items.filter((item) => item.is_active));
         setSites(sitesResult.items);
         setVehicles(vehiclesResult.items.map((item) => ({ id: item.id, fleet_no: item.fleet_no, plate_no: item.plate_no })));
+        return refreshResetRequests(host, token);
       })
       .catch((caught) => {
         if (caught instanceof ApiClientError) {
@@ -151,6 +187,19 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
       })
       .finally(() => setLoading(false));
   }, [host, router, search, subdomain]);
+
+  useEffect(() => {
+    if (!host || !subdomain) {
+      return;
+    }
+    const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
+    if (!token || !canManageMasterData) {
+      return;
+    }
+    void refreshResetRequests(host, token).catch(() => {
+      // Keep current rows visible; errors surface via action feedback.
+    });
+  }, [canManageMasterData, host, resetRequestsRoleFilter, resetRequestsStatusFilter, subdomain]);
 
   function startCreate() {
     if (!canManageMasterData) {
@@ -261,10 +310,75 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
         temporaryPassword: response.temporary_password,
       });
       setDriverMessage('Temporary password generated. Share securely and require immediate password change.');
+      await refreshResetRequests(host, token);
     } catch (caught) {
       setDriverMessage(caught instanceof ApiClientError ? caught.message : 'Unable to reset password.');
     } finally {
       setDriverSaving(false);
+    }
+  }
+
+  async function handleApproveResetRequest(requestId: string) {
+    if (!host || !subdomain) {
+      return;
+    }
+    const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
+    if (!token) {
+      router.replace('/');
+      return;
+    }
+    setDriverSaving(true);
+    setDriverMessage(null);
+    setResetCredential(null);
+    setActiveResetRequestId(requestId);
+    try {
+      const response = await approvePasswordResetRequest(
+        host,
+        token,
+        requestId,
+        resetReviewNote.trim() ? { notes: resetReviewNote.trim() } : {},
+      );
+      setResetCredential({
+        username: response.username,
+        temporaryPassword: response.temporary_password,
+      });
+      setDriverMessage('Password reset approved and temporary password generated.');
+      setResetReviewNote('');
+      await refreshResetRequests(host, token);
+    } catch (caught) {
+      setDriverMessage(caught instanceof ApiClientError ? caught.message : 'Unable to approve reset request.');
+    } finally {
+      setDriverSaving(false);
+      setActiveResetRequestId(null);
+    }
+  }
+
+  async function handleRejectResetRequest(requestId: string) {
+    if (!host || !subdomain) {
+      return;
+    }
+    const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
+    if (!token) {
+      router.replace('/');
+      return;
+    }
+    if (!resetReviewNote.trim()) {
+      setDriverMessage('Reject reason is required.');
+      return;
+    }
+    setDriverSaving(true);
+    setDriverMessage(null);
+    setActiveResetRequestId(requestId);
+    try {
+      await rejectPasswordResetRequest(host, token, requestId, { notes: resetReviewNote.trim() });
+      setDriverMessage('Password reset request rejected.');
+      setResetReviewNote('');
+      await refreshResetRequests(host, token);
+    } catch (caught) {
+      setDriverMessage(caught instanceof ApiClientError ? caught.message : 'Unable to reject reset request.');
+    } finally {
+      setDriverSaving(false);
+      setActiveResetRequestId(null);
     }
   }
 
@@ -578,18 +692,6 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
                         >
                           ✎
                         </button>
-                        <button
-                          aria-label={`Reset password for ${row.full_name}`}
-                          className="button button-secondary edit-icon-button"
-                          title="Reset password"
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void handleResetPassword(row);
-                          }}
-                        >
-                          🔐
-                        </button>
                       </div>
                     ) : (
                       '—'
@@ -795,18 +897,141 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
           </div>
         ) : null}
       </section>
+      {canManageMasterData ? (
+        <section className="card" data-testid="password-reset-requests-module">
+          <div className="toolbar">
+            <h2>Password Reset Requests</h2>
+            <div className="inline-grid three filter-grid">
+              <label className="field">
+                <span>Status</span>
+                <select
+                  value={resetRequestsStatusFilter}
+                  onChange={(event) =>
+                    setResetRequestsStatusFilter(
+                      event.target.value as 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED',
+                    )
+                  }
+                >
+                  <option value="ALL">All</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="APPROVED">Approved</option>
+                  <option value="REJECTED">Rejected</option>
+                  <option value="COMPLETED">Completed</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Role</span>
+                <select
+                  value={resetRequestsRoleFilter}
+                  onChange={(event) =>
+                    setResetRequestsRoleFilter(
+                      event.target.value as
+                        | 'ALL'
+                        | 'DRIVER'
+                        | 'SITE_SUPERVISOR'
+                        | 'SAFETY_OFFICER'
+                        | 'TENANT_ADMIN'
+                        | 'TRANSPORT_MANAGER',
+                    )
+                  }
+                >
+                  <option value="ALL">All roles</option>
+                  <option value="TRANSPORT_MANAGER">Transport Manager</option>
+                  <option value="TENANT_ADMIN">Admin</option>
+                  <option value="SITE_SUPERVISOR">Site Supervisor</option>
+                  <option value="SAFETY_OFFICER">Safety Officer</option>
+                  <option value="DRIVER">Driver</option>
+                </select>
+              </label>
+              <label className="field">
+                <span>Review note</span>
+                <input
+                  value={resetReviewNote}
+                  onChange={(event) => setResetReviewNote(event.target.value)}
+                  placeholder="Optional for approve, required for reject"
+                />
+              </label>
+            </div>
+          </div>
+          {resetRequestsLoading ? <p className="status">Loading password reset requests...</p> : null}
+          {!resetRequestsLoading && resetRequests.length === 0 ? (
+            <p className="status">No password reset requests for selected filters.</p>
+          ) : null}
+          {!resetRequestsLoading && resetRequests.length > 0 ? (
+            <div className="table">
+              <div className="table-row table-head drivers-table-row">
+                <span>Requested</span>
+                <span>Username entered</span>
+                <span>Resolved user</span>
+                <span>Role</span>
+                <span>Status</span>
+                <span>Requested IP</span>
+                <span>Reviewed by</span>
+                <span>Actions</span>
+              </div>
+              {resetRequests.map((request) => (
+                <div key={request.id} className="table-row drivers-table-row">
+                  <span>{new Date(request.requested_at).toLocaleString()}</span>
+                  <span>{request.username_entered}</span>
+                  <span>{request.resolved_user?.full_name ?? 'Unresolved'}</span>
+                  <span>{request.role ? request.role.replaceAll('_', ' ') : '—'}</span>
+                  <span>{request.status}</span>
+                  <span>{request.requested_by_ip ?? '—'}</span>
+                  <span>{request.reviewed_by?.full_name ?? '—'}</span>
+                  <span className="inline-actions">
+                    {request.status === 'PENDING' ? (
+                      <>
+                        <button
+                          className="button button-secondary"
+                          type="button"
+                          disabled={driverSaving}
+                          onClick={() => void handleApproveResetRequest(request.id)}
+                        >
+                          {driverSaving && activeResetRequestId === request.id ? 'Approving…' : 'Approve'}
+                        </button>
+                        <button
+                          className="button button-secondary"
+                          type="button"
+                          disabled={driverSaving}
+                          onClick={() => void handleRejectResetRequest(request.id)}
+                        >
+                          {driverSaving && activeResetRequestId === request.id ? 'Rejecting…' : 'Reject'}
+                        </button>
+                      </>
+                    ) : (
+                      '—'
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
       {profileDriver ? (
         <aside className="profile-drawer" data-testid="user-profile-drawer">
           <div className="profile-drawer-header">
             <h3>User Profile</h3>
-            <button
-              aria-label="Close profile"
-              className="button button-secondary"
-              type="button"
-              onClick={() => setProfileDriverId(null)}
-            >
-              Close
-            </button>
+            <div className="inline-actions">
+              {canManageRow(profileDriver) ? (
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  onClick={() => void handleResetPassword(profileDriver)}
+                  disabled={driverSaving}
+                >
+                  Reset password
+                </button>
+              ) : null}
+              <button
+                aria-label="Close profile"
+                className="button button-secondary"
+                type="button"
+                onClick={() => setProfileDriverId(null)}
+              >
+                Close
+              </button>
+            </div>
           </div>
           <div className="profile-grid">
             <div>

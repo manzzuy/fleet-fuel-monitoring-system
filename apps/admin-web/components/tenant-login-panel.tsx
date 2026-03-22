@@ -117,7 +117,7 @@ export function TenantLoginPanel({ host, subdomain }: TenantLoginPanelProps) {
         </form>
         <form className="stack" onSubmit={handleResetRequest}>
           <label className="field">
-            <span>Need password reset?</span>
+            <span>Forgot Password / Request Password Reset</span>
             <input
               type="text"
               name="reset_identifier"
@@ -128,10 +128,10 @@ export function TenantLoginPanel({ host, subdomain }: TenantLoginPanelProps) {
             />
           </label>
           <button className="button button-secondary" disabled={resetBusy} type="submit">
-            {resetBusy ? 'Submitting…' : 'Request password reset'}
+            {resetBusy ? 'Submitting…' : 'Submit reset request'}
           </button>
           <p className="status">
-            Password reset requests are routed to your tenant management team and audited.
+            Your request is routed to tenant governance for review.
           </p>
           {resetStatus ? <p className="status">{resetStatus}</p> : null}
         </form>

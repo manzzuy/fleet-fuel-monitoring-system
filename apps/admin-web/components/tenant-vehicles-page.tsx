@@ -15,7 +15,7 @@ import {
   listComplianceTypes,
   listMasterDrivers,
   listMasterVehicles,
-  listTenantSites,
+  listTenantSiteOptions,
   listTenantVehicles,
   updateMasterVehicle,
 } from '../lib/api';
@@ -28,17 +28,6 @@ import { TenantSidebarLayout } from './tenant-sidebar-layout';
 interface TenantVehiclesPageProps {
   host: string | null;
   subdomain: string | null;
-}
-
-function optionalSites(
-  promise: Promise<{ items: Array<{ id: string; site_code: string; site_name: string }> }>,
-) {
-  return promise.catch((error) => {
-    if (error instanceof ApiClientError && error.code?.startsWith('forbidden_')) {
-      return { items: [] };
-    }
-    throw error;
-  });
 }
 
 export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps) {
@@ -90,7 +79,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
     const [vehiclesResult, typesResult, sitesResult, driversResult] = await Promise.all([
       listMasterVehicles(host, token, { limit: '100', search: currentSearch || undefined }),
       listComplianceTypes(host, token, { applies_to: 'VEHICLE' }),
-      optionalSites(listTenantSites(host, token, { limit: '100' })),
+      listTenantSiteOptions(host, token, { limit: '100' }),
       listMasterDrivers(host, token, { limit: '100' }),
     ]);
     setRows(vehiclesResult.items);
@@ -118,7 +107,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
     void Promise.all([
       listMasterVehicles(host, token, { limit: '100', search: search || undefined }),
       listComplianceTypes(host, token, { applies_to: 'VEHICLE' }),
-      optionalSites(listTenantSites(host, token, { limit: '100' })),
+      listTenantSiteOptions(host, token, { limit: '100' }),
       listMasterDrivers(host, token, { limit: '100' }),
     ])
       .then(([vehiclesResult, typesResult, sitesResult, driversResult]) => {

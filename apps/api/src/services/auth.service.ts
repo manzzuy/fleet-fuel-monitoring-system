@@ -15,7 +15,7 @@ import { signAccessToken } from '../utils/jwt';
 import { hashPassword, verifyPassword } from '../utils/password';
 
 const RESET_REQUEST_GENERIC_MESSAGE =
-  'If the account exists and is active, a password reset request has been recorded for tenant support.';
+  'Your request has been submitted for review.';
 
 export async function loginTenantStaff(
   tenant: TenantContext,
@@ -180,6 +180,19 @@ export async function changeTenantStaffPassword(
         });
       }
     }
+
+    await tx.passwordResetRequest.updateMany({
+      where: {
+        tenantId: tenant.id,
+        userId: user.id,
+        status: 'APPROVED',
+      },
+      data: {
+        status: 'COMPLETED',
+        reviewedAt: new Date(),
+        reviewedBy: user.id,
+      },
+    });
   });
 
   const actorType = user.role === UserRole.DRIVER ? 'DRIVER' : 'STAFF';
@@ -207,6 +220,7 @@ export async function changeTenantStaffPassword(
 export async function requestTenantPasswordReset(
   tenant: TenantContext,
   payload: TenantPasswordResetRequest,
+  requestIp?: string,
 ): Promise<TenantPasswordResetResponse> {
   const identifier = payload.identifier.trim().toLowerCase();
   if (!identifier) {
@@ -240,6 +254,18 @@ export async function requestTenantPasswordReset(
         resolved_user_id: user?.id ?? null,
         resolved_role: user?.role ?? null,
       },
+    },
+  });
+
+  await prisma.passwordResetRequest.create({
+    data: {
+      tenantId: tenant.id,
+      usernameEntered: identifier,
+      userId: user?.id ?? null,
+      role: user?.role ?? null,
+      status: 'PENDING',
+      requestedByIp: requestIp ?? null,
+      notes: user ? 'Matched active account.' : 'No active account match at request time.',
     },
   });
 

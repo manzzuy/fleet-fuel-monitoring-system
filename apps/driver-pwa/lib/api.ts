@@ -93,7 +93,7 @@ export async function tenantRequestPasswordReset(
   tenantHost: string,
   payload: { identifier: string },
 ) {
-  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/auth/reset-request`, tenantHost), {
+  const response = await fetch(withTenantQuery(`${appConfig.apiBaseUrl}/auth/request-password-reset`, tenantHost), {
     method: 'POST',
     headers: {
       ...tenantHeaders(tenantHost),

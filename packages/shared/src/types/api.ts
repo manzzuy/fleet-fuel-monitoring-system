@@ -195,6 +195,75 @@ export interface TenantPasswordResetResponse {
   message: string;
 }
 
+export type PasswordResetRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+
+export interface PasswordResetRequestRecord {
+  id: string;
+  username_entered: string;
+  status: PasswordResetRequestStatus;
+  role:
+    | 'TENANT_ADMIN'
+    | 'COMPANY_ADMIN'
+    | 'SUPERVISOR'
+    | 'SITE_SUPERVISOR'
+    | 'SAFETY_OFFICER'
+    | 'TRANSPORT_MANAGER'
+    | 'HEAD_OFFICE_ADMIN'
+    | 'DRIVER'
+    | null;
+  requested_at: string;
+  requested_by_ip: string | null;
+  reviewed_at: string | null;
+  notes: string | null;
+  resolved_user: {
+    id: string;
+    full_name: string;
+    username: string | null;
+    role:
+      | 'TENANT_ADMIN'
+      | 'COMPANY_ADMIN'
+      | 'SUPERVISOR'
+      | 'SITE_SUPERVISOR'
+      | 'SAFETY_OFFICER'
+      | 'TRANSPORT_MANAGER'
+      | 'HEAD_OFFICE_ADMIN'
+      | 'DRIVER';
+    site: {
+      id: string;
+      site_code: string;
+      site_name: string;
+    } | null;
+  } | null;
+  reviewed_by: {
+    id: string;
+    full_name: string;
+    username: string | null;
+  } | null;
+}
+
+export interface PasswordResetRequestsListResponse {
+  items: PasswordResetRequestRecord[];
+  scope_status?: ScopeStatus;
+  request_id: string;
+}
+
+export interface ApprovePasswordResetRequestResponse {
+  request_id: string;
+  user_id: string;
+  username: string | null;
+  role:
+    | 'TENANT_ADMIN'
+    | 'COMPANY_ADMIN'
+    | 'SUPERVISOR'
+    | 'SITE_SUPERVISOR'
+    | 'SAFETY_OFFICER'
+    | 'TRANSPORT_MANAGER'
+    | 'HEAD_OFFICE_ADMIN'
+    | 'DRIVER';
+  force_password_change: true;
+  temporary_password: string;
+}
+
 export interface TenantUserPasswordResetResponse {
   user_id: string;
   username: string | null;
