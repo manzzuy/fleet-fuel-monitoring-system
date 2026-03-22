@@ -77,13 +77,13 @@ export function TenantDailyCheckDetailsPage({
 
   useEffect(() => {
     if (!host || !subdomain) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
 
     const stored = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!stored) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
 

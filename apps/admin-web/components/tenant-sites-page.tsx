@@ -41,7 +41,7 @@ export function TenantSitesPage({ host, subdomain }: TenantSitesPageProps) {
     }
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!token) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
     const currentRole = getTenantRoleFromToken(token);
@@ -57,13 +57,13 @@ export function TenantSitesPage({ host, subdomain }: TenantSitesPageProps) {
 
   useEffect(() => {
     if (!host || !subdomain) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
 
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!token) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
     const currentRole = getTenantRoleFromToken(token);
@@ -127,7 +127,7 @@ export function TenantSitesPage({ host, subdomain }: TenantSitesPageProps) {
     }
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!token) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
 

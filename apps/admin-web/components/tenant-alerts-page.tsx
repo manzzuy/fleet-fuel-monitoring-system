@@ -79,13 +79,13 @@ export function TenantAlertsPage({ host, subdomain }: TenantAlertsPageProps) {
 
   useEffect(() => {
     if (!host || !subdomain) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
 
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!token) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
 

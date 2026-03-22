@@ -128,7 +128,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     }
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!token) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
     const currentRole = getTenantRoleFromToken(token);
@@ -149,13 +149,13 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
 
   useEffect(() => {
     if (!host || !subdomain) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
 
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!token) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
     const currentRole = getTenantRoleFromToken(token);
@@ -254,7 +254,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     }
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!token) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
     setDriverSaving(true);
@@ -300,7 +300,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     }
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!token) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
     setDriverSaving(true);
@@ -327,7 +327,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     }
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!token) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
     setDriverSaving(true);
@@ -362,7 +362,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     }
     const token = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!token) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
     if (!resetReviewNote.trim()) {

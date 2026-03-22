@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { tenantChangePassword } from '../lib/api';
 import {
+  buildTenantLoginPath,
   getTenantTokenKey,
   isForcePasswordChangeToken,
   setForcePasswordChangeCookie,
@@ -28,7 +29,7 @@ export function TenantChangePasswordPanel({ host, subdomain }: TenantChangePassw
   useEffect(() => {
     const stored = window.localStorage.getItem(getTenantTokenKey(subdomain));
     if (!stored) {
-      router.replace('/');
+      router.replace(buildTenantLoginPath(subdomain));
       return;
     }
     const isForced = isForcePasswordChangeToken(stored);
@@ -57,7 +58,7 @@ export function TenantChangePasswordPanel({ host, subdomain }: TenantChangePassw
       });
       window.localStorage.setItem(getTenantTokenKey(subdomain), response.access_token);
       setForcePasswordChangeCookie(subdomain, false);
-      router.replace('/dashboard');
+      router.replace(`/dashboard?tenant=${encodeURIComponent(subdomain)}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to update password.');
     } finally {
