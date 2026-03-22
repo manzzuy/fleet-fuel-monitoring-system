@@ -340,7 +340,7 @@ export function TenantVehiclesPage({ host, subdomain }: TenantVehiclesPageProps)
       <section className="card" data-testid="vehicles-monitoring-module">
         <div className="toolbar">
           <h2>Vehicles</h2>
-          <label className="field compact">
+          <label className="field compact filter-label-field">
             <span>Search</span>
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Fleet or plate" />
           </label>

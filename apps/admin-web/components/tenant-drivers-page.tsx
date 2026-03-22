@@ -104,8 +104,9 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     row.role !== 'TRANSPORT_MANAGER' &&
     !(row.role === 'TENANT_ADMIN' && role !== 'TRANSPORT_MANAGER');
 
-  async function refreshResetRequests(currentHost: string, token: string) {
-    if (!canManageMasterData) {
+  async function refreshResetRequests(currentHost: string, token: string, roleOverride?: TenantStaffRole | null) {
+    const effectiveRole = roleOverride ?? getTenantRoleFromToken(token);
+    if (!canManageMasterDataRole(effectiveRole)) {
       setResetRequests([]);
       return;
     }
@@ -130,7 +131,8 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
       router.replace('/');
       return;
     }
-    setRole(getTenantRoleFromToken(token));
+    const currentRole = getTenantRoleFromToken(token);
+    setRole(currentRole);
     const [driversResult, typesResult, sitesResult, vehiclesResult] = await Promise.all([
       listMasterDrivers(host, token, { limit: '100', search: currentSearch || undefined }),
       listComplianceTypes(host, token, { applies_to: 'DRIVER' }),
@@ -142,7 +144,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
     setComplianceTypes(typesResult.items.filter((item) => item.is_active));
     setSites(sitesResult.items);
     setVehicles(vehiclesResult.items.map((item) => ({ id: item.id, fleet_no: item.fleet_no, plate_no: item.plate_no })));
-    await refreshResetRequests(host, token);
+    await refreshResetRequests(host, token, currentRole);
   }
 
   useEffect(() => {
@@ -156,7 +158,8 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
       router.replace('/');
       return;
     }
-    setRole(getTenantRoleFromToken(token));
+    const currentRole = getTenantRoleFromToken(token);
+    setRole(currentRole);
 
     setLoading(true);
     setError(null);
@@ -172,7 +175,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
         setComplianceTypes(typesResult.items.filter((item) => item.is_active));
         setSites(sitesResult.items);
         setVehicles(vehiclesResult.items.map((item) => ({ id: item.id, fleet_no: item.fleet_no, plate_no: item.plate_no })));
-        return refreshResetRequests(host, token);
+        return refreshResetRequests(host, token, currentRole);
       })
       .catch((caught) => {
         if (caught instanceof ApiClientError) {
@@ -495,7 +498,7 @@ export function TenantDriversPage({ host, subdomain }: TenantDriversPageProps) {
       <section className="card" data-testid="drivers-monitoring-module">
         <div className="toolbar">
           <h2>Users</h2>
-          <label className="field compact">
+          <label className="field compact filter-label-field">
             <span>Search</span>
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, role, employee, username" />
           </label>
